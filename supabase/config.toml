@@ -1,0 +1,15 @@
+project_id = "math-learning-workbench"
+
+[functions.ai-assistant]
+enabled = true
+# Authentication is enforced in the handler with auth.getUser(jwt) and app_owner.
+# Keep this aligned with the deployed custom-auth function configuration.
+verify_jwt = false
+entrypoint = "./functions/ai-assistant/index.ts"
+
+[auth]
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false

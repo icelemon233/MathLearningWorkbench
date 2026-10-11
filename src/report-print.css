@@ -1,0 +1,62 @@
+@page {
+  size: A4 portrait;
+  margin: 22mm 20mm;
+}
+
+html {
+  color-scheme: light;
+  background: #fff;
+}
+
+body {
+  margin: 0;
+  color: #000;
+  background: #fff;
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  font-size: 11pt;
+  line-height: 1.75;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.monthly-report-print {
+  width: 100%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.monthly-report-print h1 {
+  margin: 0 0 6mm;
+  color: #000;
+  font-size: 20pt;
+  line-height: 1.35;
+  font-weight: 700;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.report-metadata {
+  margin-bottom: 5mm;
+}
+
+.report-metadata p {
+  margin: 0 0 1.5mm;
+  white-space: pre-wrap;
+}
+
+.monthly-report-print h2 {
+  margin: 5mm 0 2.5mm;
+  color: #000;
+  font-size: 13pt;
+  line-height: 1.5;
+  font-weight: 700;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.monthly-report-print p {
+  margin: 0 0 3mm;
+  white-space: pre-wrap;
+  orphans: 2;
+  widows: 2;
+}
