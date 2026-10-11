@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { masteryCounts, monthPeriod, validatePeriod } from '../src/lib';
+import { aiErrorMessage, masteryCounts, monthPeriod, validatePeriod } from '../src/lib';
 import { EMPTY_DATA } from '../src/types';
 import type { AppData } from '../src/types';
 
@@ -28,5 +28,19 @@ describe('mastery summary scope', () => {
   });
   it('does not infer statuses for missing records', () => {
     expect(masteryCounts(EMPTY_DATA)).toEqual({ pending: 0, weak: 0, basic: 0, mastered: 0 });
+  });
+});
+describe('AI error messages', () => {
+  it('uses stable codes when a parsed JSON message has already lost its Chinese text', () => {
+    const message = 'AI \uFFFD\uFFFD\uFFFDδ\uFFFD棬\uFFFDԡ\uFFFD';
+    expect(aiErrorMessage({ code: 'invalid_model_output', message })).toBe('AI 返回内容格式不符合要求，尚未保存，请重新生成。');
+    expect(aiErrorMessage({ code: 'incomplete_model_output', message })).toBe('AI 输出尚未完成，本次内容未保存，请重新生成。');
+  });
+  it('preserves readable messages and replaces corrupted or missing unknown errors', () => {
+    expect(aiErrorMessage({ code: 'model_timeout', message: '模型响应超时，请稍后重试。' })).toBe('模型响应超时，请稍后重试。');
+    expect(aiErrorMessage(' AI 服务正在维护。 ')).toBe('AI 服务正在维护。');
+    for (const value of [{ code: 'unknown', message: 'AI \uFFFD\uFFFD错误' }, 'AI \uFFFD\uFFFD错误', { code: 'unknown' }, { message: 42 }, null]) {
+      expect(aiErrorMessage(value)).toBe('AI 服务暂时不可用，请稍后重试。');
+    }
   });
 });

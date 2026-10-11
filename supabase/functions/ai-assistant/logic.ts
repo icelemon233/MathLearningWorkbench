@@ -184,9 +184,12 @@ export function feedbackOutput(value: RecordValue, data: RecordValue): string {
   if (!performance) state = '当天的整体上课状态尚未记录，需后续补充观察。';
   if (!problems && !incompleteHomework) observation = '本次课堂练习或作业暴露的具体问题尚未记录，需后续补充观察。';
   if (!performance && !problems && !incompleteHomework) strategy = '目前记录不足，尚不能判断原因；后续建议补充课堂状态及练习表现，再据此安排针对性巩固。';
-  const cautiousCause = /可能|或许|尚(?:不能|无法)|(?:还)?需(?:要)?[^。！？]{0,12}(?:观察|核实|确认)|待(?:观察|核实|确认)/u;
+  const cautiousCause = /可能|或许|尚(?:不能|无法)|(?:还)?需(?:要)?[^。！？]{0,12}(?:观察|核实|确认)|待(?:观察|核实|确认)|建议[^。！？]{0,12}观察/u;
   const definiteCause = /(?:主要原因|原因)(?:就是|是(?!否)|在于)|这是因为|(?:肯定|一定|必然|确实)是/u;
-  if (!cautiousCause.test(strategy) || definiteCause.test(strategy)) {
+  // A tentative claim such as “可能原因是…” is not a definite assertion.
+  // Mask only that local phrasing, so a later unsupported definite cause is still rejected.
+  const causeClaims = strategy.replace(/(?:可能|或许)(?:的)?(?:主要)?原因(?:就是|是(?!否)|在于)/gu, '待核实解释');
+  if (!cautiousCause.test(strategy) || definiteCause.test(causeClaims)) {
     throw new ApiError(502, 'invalid_model_output', 'AI 对原因的分析缺少待核实说明，请重新生成。');
   }
   // Keep the state summary to one sentence even if the model uses multiple

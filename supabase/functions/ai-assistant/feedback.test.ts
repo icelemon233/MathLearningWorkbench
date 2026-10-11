@@ -103,6 +103,10 @@ test('unsupported definite causes and missing analysis are rejected', () => {
   invalid(() => feedbackOutput({ ...draft, cause_and_strategy: '主要原因是学生不够认真，后续加强练习。' }, source));
   invalid(() => feedbackOutput({ ...draft, cause_and_strategy: '可能需要观察，但原因在于不认真。' }, source));
   invalid(() => feedbackOutput({ ...draft, cause_and_strategy: '后续加强练习。' }, source));
+  invalid(() => feedbackOutput({ ...draft, cause_and_strategy: '可能原因是步骤不熟，但主要原因在于不认真。' }, source));
+  for (const analysis of ['可能原因是步骤还不熟，后续建议针对代入步骤练习。', '或许的主要原因是检查习惯尚未稳定，还需观察确认。', '具体原因尚不明确，建议继续观察练习过程，再安排针对性巩固。']) {
+    assert.equal(bodyParagraphs(feedbackOutput({ ...draft, cause_and_strategy: analysis }, source))[2], analysis);
+  }
 });
 
 test('feedback prompt separates the required paragraphs and forbids unsupported causes, scores and tasks', () => {

@@ -28,7 +28,7 @@ values (true, '<AUTH_USER_UUID>');
 
 需要本地联调时，`ALLOWED_ORIGIN` 可用逗号分隔追加明确的本地 origin。不要使用 `*`。模型 ID 不设默认值，避免无意调用未开通或不适配的模型。
 
-当前使用 DeepSeek 时，建议设置 `AI_BASE_URL=https://api.deepseek.com`、`AI_MODEL=deepseek-flash`（2026-10-12 核对官方文档）。教学总结与反馈请求显式发送 `thinking: { type: 'disabled' }`，将输出预算用于草稿；该参数只对 DeepSeek 地址发送，豆包使用自己开通的模型或接入点 ID，且不会收到此参数。模型名称可能更新，切换时以账号可用模型和官方文档为准。
+当前使用 DeepSeek 时，建议设置 `AI_BASE_URL=https://api.deepseek.com`、`AI_MODEL=deepseek-flash`（2026-10-12 核对官方文档）。教学总结与反馈请求显式发送 `thinking: { type: 'disabled' }` 和 `response_format: { type: 'json_object' }`，将输出预算用于草稿，并减少无效 JSON 返回；这些参数只对 DeepSeek 地址发送，豆包使用自己开通的模型或接入点 ID，且不会收到这些参数。模型名称可能更新，切换时以账号可用模型和官方文档为准。
 
 函数读取平台提供的 `SUPABASE_URL` 与 `SUPABASE_PUBLISHABLE_KEYS.default`；旧项目可回退至 `SUPABASE_ANON_KEY`。函数不使用 service role key。每次业务请求都通过 `auth.getUser(jwt)` 验证身份并检查 `app_owner.owner_id`，数据库查询使用同一用户 JWT，继续受 RLS 保护。
 

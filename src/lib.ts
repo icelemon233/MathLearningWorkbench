@@ -20,6 +20,15 @@ export function masteryCounts(data: AppData, studentId?: string) {
   return counts;
 }
 export const reportName = (report: MonthlyReport) => report.snapshot.student.name;
+export function aiErrorMessage(value: unknown): string {
+  const detail = typeof value === 'object' && value !== null ? value as Record<string, unknown> : null;
+  if (detail?.code === 'invalid_model_output') return 'AI 返回内容格式不符合要求，尚未保存，请重新生成。';
+  if (detail?.code === 'incomplete_model_output') return 'AI 输出尚未完成，本次内容未保存，请重新生成。';
+  const message = typeof value === 'string' ? value : detail?.message;
+  return typeof message === 'string' && message.trim() && !message.includes('\uFFFD')
+    ? message.trim()
+    : 'AI 服务暂时不可用，请稍后重试。';
+}
 export const errorMessage = (error: unknown) => {
   const raw = error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : '操作失败，请稍后重试';
   if (/mastery_conflict/.test(raw)) return '这个知识点已在其他记录中更新。请刷新后核对掌握情况，再保存。';

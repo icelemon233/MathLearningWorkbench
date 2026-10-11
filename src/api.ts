@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { aiErrorMessage } from './lib';
 import type { AppData, KnowledgePoint, KnowledgeUpdate, Lesson, MasteryStatus, ReportContent, Student, StudentKnowledge } from './types';
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -58,9 +59,9 @@ export async function invokeAI(input: Record<string, unknown>) {
   if (error) {
     let body;
     try { body = await error.context?.json(); } catch { /* The gateway may return a non-JSON response. */ }
-    if (body?.error) throw new Error(typeof body.error === 'string' ? body.error : body.error.message || body.error.code || 'AI 服务暂时不可用');
+    if (body?.error) throw new Error(aiErrorMessage(body.error));
     throw new Error('AI 服务暂时不可用，请检查连接或稍后重试。');
   }
-  if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : data.error.message || data.error.code || 'AI 服务暂时不可用');
+  if (data?.error) throw new Error(aiErrorMessage(data.error));
   return data as { feedback?: string; report?: AppData['reports'][number]; insights?: string; suggestions?: string[] };
 }

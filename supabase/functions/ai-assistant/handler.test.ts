@@ -123,7 +123,7 @@ Deno.test('monthly generation validates output and permanently saves with the or
     assert.deepEqual((saves[0].body as Record<string, unknown>).p_content, content);
   });
 });
-Deno.test('provider request disables DeepSeek thinking without sending its parameter to Doubao', async () => {
+Deno.test('provider request enables DeepSeek JSON output and disables thinking without sending those parameters to Doubao', async () => {
   for (const provider of ['deepseek', 'doubao'] as const) {
     await mocked({ provider }, async (calls) => {
       const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId }));
@@ -134,8 +134,13 @@ Deno.test('provider request disables DeepSeek thinking without sending its param
       assert.equal(body.model, 'configured-test-model');
       assert.equal(body.stream, false);
       assert.equal(body.max_tokens, 5000);
-      if (provider === 'deepseek') assert.deepEqual(body.thinking, { type: 'disabled' });
-      else assert.equal(Object.hasOwn(body, 'thinking'), false);
+      if (provider === 'deepseek') {
+        assert.deepEqual(body.thinking, { type: 'disabled' });
+        assert.deepEqual(body.response_format, { type: 'json_object' });
+      } else {
+        assert.equal(Object.hasOwn(body, 'thinking'), false);
+        assert.equal(Object.hasOwn(body, 'response_format'), false);
+      }
     });
   }
 });

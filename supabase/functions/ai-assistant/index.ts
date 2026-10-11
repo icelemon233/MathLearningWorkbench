@@ -29,9 +29,10 @@ async function callModel(action: Action, source: Record<string, unknown>): Promi
   if (!model || !key) throw new ApiError(503, 'model_not_configured', 'AI 服务尚未配置模型和密钥。');
   const messages = messagesFor(action, source);
   // These tasks draft summaries from supplied records; reserve output for the draft.
-  // This provider-specific parameter must not be sent to other compatible APIs.
+  // Keep DeepSeek output in JSON mode as required by the structured draft contract.
+  // These provider-specific parameters must not be sent to other compatible APIs.
   const providerOptions = new URL(endpoint).hostname === 'api.deepseek.com'
-    ? { thinking: { type: 'disabled' } } : {};
+    ? { thinking: { type: 'disabled' }, response_format: { type: 'json_object' } } : {};
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
   try {
