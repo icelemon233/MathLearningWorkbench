@@ -44,7 +44,9 @@ jobs:
         run: node scripts/validate-config.mjs
 
       - name: Test
-        run: pnpm test
+        run: |
+          pnpm test
+          pnpm test:ai
 
       - name: Build
         run: pnpm build

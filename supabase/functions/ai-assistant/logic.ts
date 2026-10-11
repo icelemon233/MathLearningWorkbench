@@ -123,7 +123,81 @@ function modelText(value: unknown, max = 24000, optional = false): string {
   }
   return value.trim();
 }
-export function feedbackOutput(value: RecordValue): string { return modelText(value.feedback); }
+function feedbackParagraph(value: unknown): string {
+  const text = modelText(value, 4000).replace(/\s+/g, ' ');
+  if (/```|(?:^|\s)#{1,6}\s|[一二三]、(?:课堂内容|课堂表现|课后作业)/u.test(text)) {
+    throw new ApiError(502, 'invalid_model_output', 'AI 反馈段落格式不符合要求，请重新生成。');
+  }
+  return text;
+}
+function sourceText(value: unknown): string { return typeof value === 'string' ? value.trim() : ''; }
+function oneLine(value: string): string { return value.replace(/\s+/g, ' ').trim(); }
+function feedbackContent(value: unknown, content: string): string[] {
+  const lines = content.split(/\r\n?|\n/).map((line) => line.trim()).filter(Boolean);
+  // Teacher-entered lines are authoritative. Only split a prose line when every
+  // extracted item is a literal span of that line, in its original order.
+  if (lines.length !== 1 || !Array.isArray(value) || !value.length || value.length > 60) return lines;
+  const original = content.replace(/\s+/g, '');
+  const points: string[] = [];
+  let cursor = 0, gaps = '';
+  for (const item of value) {
+    if (typeof item !== 'string' || !item.trim() || /[\r\n]/.test(item)) return lines;
+    const point = item.trim();
+    const literal = point.replace(/\s+/g, '');
+    const index = original.indexOf(literal, cursor);
+    if (index < 0) return lines;
+    gaps += original.slice(cursor, index);
+    points.push(point); cursor = index + literal.length;
+  }
+  gaps += original.slice(cursor);
+  // Do not silently drop any source words. A failed extraction falls back to
+  // the complete teacher-entered line, rather than a partial list of topics.
+  if (gaps.replace(/[，,；;。.!！？?、：:（）()“”"'‘’]/gu, '')) return lines;
+  return points;
+}
+function assertFeedbackLanguage(text: string) {
+  // Score context is required: mathematical fractions, page/exercise numbers,
+  // angles and time spent on an exercise must remain valid teaching facts.
+  const withoutTimes = text.replace(/(?:用时|耗时|时长|花费)\s*[0-9零一二三四五六七八九十百两]+(?:\.[0-9]+)?\s*分(?:钟)?/gu, '');
+  const score = /(?:考试|月考|期中|期末|测验|测试|练习|作业|成绩|得分|考了|考得|拿到|拿了|得了)[^。！？\n]{0,16}?[0-9零一二三四五六七八九十百两]+(?:\.[0-9]+)?\s*分(?![数式母子钟之成解配])/u;
+  const directScore = /(?:成绩|得分|考了|考得|考到|拿了|拿到|得了)(?:为|是|达到|了|：|:|\s){0,4}[0-9零一二三四五六七八九十百两]+(?:\.[0-9]+)?(?:\s*分(?![数式母子钟之成解配])|[。！？\s]|$)/u;
+  const promise = /(?:保证|承诺|确保|一定|必定|必然|稳拿|必拿)[^。！？\n]{0,24}(?:提分|涨分|提高成绩|提高分数|拿高分|考高分)|(?:提分|涨分)[^。！？\n]{0,12}(?:保证|承诺|一定|必定)/u;
+  if (score.test(withoutTimes) || directScore.test(withoutTimes) || promise.test(text)) {
+    throw new ApiError(502, 'invalid_model_output', 'AI 反馈包含成绩分数或提分承诺，请重新生成。');
+  }
+}
+export function feedbackOutput(value: RecordValue, data: RecordValue): string {
+  if (!record(data.student) || !record(data.lesson)) throw new ApiError(500, 'invalid_source', '课堂记录读取失败。');
+  const student = data.student, lesson = data.lesson;
+  const name = oneLine(sourceText(student.name));
+  const date = sourceText(lesson.lesson_date);
+  const content = sourceText(lesson.content);
+  if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !content) throw new ApiError(500, 'invalid_source', '课堂记录不完整，无法生成反馈。');
+  const [year, month, day] = date.split('-').map(Number);
+  const displayDate = `${year}年${month}月${day}日`;
+  // Require the new model contract; never pass through a legacy single blob.
+  let state = feedbackParagraph(value.state_summary);
+  let observation = feedbackParagraph(value.problem_observation);
+  let strategy = feedbackParagraph(value.cause_and_strategy);
+  const performance = sourceText(lesson.performance), problems = sourceText(lesson.problems);
+  const incompleteHomework = ['部分完成', '未完成'].includes(sourceText(lesson.homework_completion));
+  if (!performance) state = '当天的整体上课状态尚未记录，需后续补充观察。';
+  if (!problems && !incompleteHomework) observation = '本次课堂练习或作业暴露的具体问题尚未记录，需后续补充观察。';
+  if (!performance && !problems && !incompleteHomework) strategy = '目前记录不足，尚不能判断原因；后续建议补充课堂状态及练习表现，再据此安排针对性巩固。';
+  const cautiousCause = /可能|或许|尚(?:不能|无法)|(?:还)?需(?:要)?[^。！？]{0,12}(?:观察|核实|确认)|待(?:观察|核实|确认)/u;
+  const definiteCause = /(?:主要原因|原因)(?:就是|是(?!否)|在于)|这是因为|(?:肯定|一定|必然|确实)是/u;
+  if (!cautiousCause.test(strategy) || definiteCause.test(strategy)) {
+    throw new ApiError(502, 'invalid_model_output', 'AI 对原因的分析缺少待核实说明，请重新生成。');
+  }
+  // Keep the state summary to one sentence even if the model uses multiple
+  // Chinese sentence terminators; the three paragraph boundaries are ours.
+  state = state.replace(/[。！？!?]+(?=.)/gu, '；');
+  const next = oneLine(sourceText(lesson.next_plan)) || '尚未记录。';
+  const homework = oneLine(sourceText(lesson.homework)) || '尚未记录。';
+  const feedback = `${name}家长您好！\n以下是孩子${displayDate}的数学课堂反馈，请您查收。\n\n一、课堂内容（${displayDate}）\n${feedbackContent(value.content_points, content).join('\n')}\n\n二、课堂表现\n${state}\n\n${observation}\n\n${strategy}\n\n三、课后作业及后续计划\n下节课计划：${next}\n课后作业：${homework}`;
+  assertFeedbackLanguage(feedback);
+  return modelText(feedback);
+}
 export function reportOutput(value: RecordValue): ReportContent {
   return {
     state: modelText(value.state), level: modelText(value.level), guidance: modelText(value.guidance),
@@ -169,9 +243,16 @@ export function messagesFor(action: Action, data: RecordValue): Array<{ role: 's
   let source: unknown;
   if (action.action === 'lesson_feedback') {
     if (!record(data.student) || !record(data.lesson)) throw new ApiError(500, 'invalid_source', '课堂记录读取失败。');
-    task = `生成一段可复制给家长的课后反馈，返回 {"feedback":"完整反馈文字"}。
-按以下顺序写：学生称呼及日期；一、课堂内容（知识点分行）；二、课堂表现（状态总结、具体问题、后续对策分三小段）；三、课后作业及后续计划（先下节课计划，再具体作业）。
-没有记录的状态、原因、作业或计划请如实说明未记录，不要补造内容。建议用“建议”标明。不要提考试分数或提分承诺。`;
+    task = `根据真实课堂记录，生成给家长的课后反馈素材，只返回以下 JSON：
+{"content_points":["课堂内容中的知识点"],"state_summary":"整体状态的一句话总结","problem_observation":"具体问题描述的一段话","cause_and_strategy":"原因分析与对策的一段话"}。
+服务端会按固定格式补上姓名、课堂日期、问候及三个章节标题。不要返回完整反馈、标题、编号、Markdown 或额外字段。
+content_points：将本节课内容按原顺序一项一个，直接摘录原文连续片段，不改写、不补充。保留所有原文用词，只在适当位置分行，除分隔标点外不能遗漏任何课堂内容。原文已有多行时，保留每行内容。不加入课堂表现、作业或新知识点。
+state_summary：只根据 performance（今天上课的真实状态），写一句贴合当天实际的整体状态总结，语气客观，不套话、不空夸，不评价学生聪明与否。未记录时明确写“当天的整体上课状态尚未记录”。
+problem_observation：根据 problems（今天练习/作业暴露的问题）及 homework_completion 的已记录事实，写一段具体问题描述。可用“从课堂练习的完成情况来看……”开头；没有正确率数据时不要用“从作业正确率来看”，更不能编造正确率。未记录具体问题时如实说明未记录，不能写成“没有问题”。
+cause_and_strategy：根据上述状态与问题，单独写一段原因分析及对策。原因未被记录证实时，只能用“可能”“还需进一步观察确认”等措辞，不作确定归因；用“后续建议”“需要”等措辞给出相关对策，体现老师的关注和负责，不声称已安排未记录的教学任务。
+课堂表现必须对应以上三个独立字符串，每个字符串只写一个自然段：第一段状态总结，第二段具体问题描述，第三段原因分析与对策。语气专业、客观、负责，不要夸张。
+下节课计划与具体课后作业由服务端使用 next_plan 和 homework 原记录，按计划在前、作业在后的顺序拼接，你不要新增作业、页码、题号或计划。
+不要提考试成绩或分数，即使原记录中出现也应省略；不要承诺提分。数学中的分数运算、公式、页码、题号、章节和耗时等真实教学事实可以正常使用。`;
     source = { student: studentFacts(data.student), lesson: lessonFacts(data.lesson) };
   } else if (action.action === 'monthly_report') {
     if (!record(data.student) || !Array.isArray(data.lessons) || !Array.isArray(data.knowledge)) throw new ApiError(500, 'invalid_source', '月度记录读取失败。');

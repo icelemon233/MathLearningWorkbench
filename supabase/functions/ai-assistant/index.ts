@@ -145,7 +145,7 @@ export async function handler(request: Request): Promise<Response> {
     const generated = await callModel(action, source);
     if (action.action === 'lesson_feedback') {
       // A feedback draft is returned for the teacher to review/edit/save.
-      return new Response(JSON.stringify({ feedback: feedbackOutput(generated) }), { headers });
+      return new Response(JSON.stringify({ feedback: feedbackOutput(generated, source) }), { headers });
     }
     if (action.action === 'student_insights') return new Response(JSON.stringify(insightsOutput(generated)), { headers });
     const content = reportOutput(generated);

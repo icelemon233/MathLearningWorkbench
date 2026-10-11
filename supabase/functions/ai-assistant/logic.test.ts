@@ -51,12 +51,12 @@ test('streamed bodies are bounded even without Content-Length', async () => {
 });
 
 test('model output must be complete structured content before it can be saved', () => {
-  assert.equal(feedbackOutput(parseModelJson('```json\n{"feedback":"真实反馈"}\n```')), '真实反馈');
+  assert.deepEqual(parseModelJson('```json\n{"feedback":"真实反馈"}\n```'), { feedback: '真实反馈' });
   throwsCode(() => parseModelJson('不是 JSON'), 'invalid_model_output');
   throwsCode(() => reportOutput({ state: '记录', level: '记录', guidance: '建议', supplement: '' }), 'invalid_model_output');
   const report = { state: '记录', level: '记录', guidance: '建议', supplement: '', plan: '计划' };
   assert.deepEqual(reportOutput(report), report);
-  throwsCode(() => feedbackOutput({ feedback: '' }), 'invalid_model_output');
+  throwsCode(() => feedbackOutput({ feedback: '' }, { student: { name: '测试学生' }, lesson: { lesson_date: '2026-10-01', content: '一次函数' } }), 'invalid_model_output');
   throwsCode(() => insightsOutput({ insights: '记录', suggestions: '不符合格式' }), 'invalid_model_output');
 });
 
