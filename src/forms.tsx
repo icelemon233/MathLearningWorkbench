@@ -1,35 +1,168 @@
 import { useState } from 'react';
-import { Check, Sparkles } from 'lucide-react';
-import { Button, Field } from './components';
+import { Alert, AutoComplete, Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Segmented, Select, Typography } from 'antd';
+import type { AutoCompleteProps } from 'antd';
+import { SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { monthPeriod, today, validatePeriod } from './lib';
 import { STATUS_OPTIONS } from './types';
 import type { AppData, KnowledgePoint, KnowledgeUpdate, Lesson, MasteryStatus, ReportContent, Student, StudentKnowledge } from './types';
 
-const text = (data: FormData, key: string) => String(data.get(key) ?? '').trim();
+const DATE_FORMAT = 'YYYY-MM-DD';
+const gradeOptions = ['小学一年级', '小学二年级', '小学三年级', '小学四年级', '小学五年级', '小学六年级', '七年级', '八年级', '九年级', '高一', '高二', '高三'].map(value => ({ value }));
+const statusOptions = STATUS_OPTIONS.map(option => ({ ...option }));
+const trim = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+const dateValue = (value?: string | null) => value ? dayjs(value) : null;
+const dateText = (value?: Dayjs | null) => value?.isValid() ? value.format(DATE_FORMAT) : '';
+const requiredText = (label: string) => [{ required: true, whitespace: true, message: `请填写${label}` }];
+const requiredChoice = (label: string) => [{ required: true, message: `请选择${label}` }];
+
+function GradeInput(props: AutoCompleteProps) {
+  return <AutoComplete {...props} options={gradeOptions} filterOption={(input, option) => String(option?.value ?? '').toLowerCase().includes(input.trim().toLowerCase())}>
+    <Input maxLength={40} placeholder="选择或填写年级，如：七年级" />
+  </AutoComplete>;
+}
+
+type StudentValues = { name: string; grade: string; start_date?: Dayjs | null; goal?: string; notes?: string };
 export function StudentForm({ student, busy, save }: { student?: Student; busy: boolean; save: (value: Partial<Student>) => void }) {
-  return <form onSubmit={e => { e.preventDefault(); const d = new FormData(e.currentTarget); save({ ...(student ? { id: student.id } : {}), name: text(d, 'name'), grade: text(d, 'grade'), start_date: text(d, 'start_date') || null, goal: text(d, 'goal'), notes: text(d, 'notes') }); }}><div className="form-grid"><Field label="学生姓名 *"><input name="name" required maxLength={60} defaultValue={student?.name} placeholder="填写姓名" /></Field><Field label="年级 *"><input name="grade" required maxLength={40} defaultValue={student?.grade} placeholder="如：七年级" list="grade-options" /></Field><Field label="开始学习日期"><input name="start_date" type="date" defaultValue={student?.start_date ?? ''} /></Field><Field label="学习目标" wide><textarea name="goal" rows={3} maxLength={2000} defaultValue={student?.goal} placeholder="希望解决哪些问题，达到什么目标" /></Field><Field label="备注" wide><textarea name="notes" rows={2} maxLength={2000} defaultValue={student?.notes} placeholder="其他需要记住的事项（选填）" /></Field></div><footer className="form-footer"><span>保存后在你的设备间同步</span><Button className="button primary" type="submit" busy={busy}><Check size={16} />保存学生档案</Button></footer></form>;
+  const onFinish = (values: StudentValues) => {
+    if (busy) return;
+    save({ ...(student ? { id: student.id } : {}), name: trim(values.name), grade: trim(values.grade), start_date: dateText(values.start_date) || null, goal: trim(values.goal), notes: trim(values.notes) });
+  };
+  return <Form<StudentValues> name="student" layout="vertical" disabled={busy} onFinish={onFinish} scrollToFirstError initialValues={{ name: student?.name ?? '', grade: student?.grade ?? '', start_date: dateValue(student?.start_date), goal: student?.goal ?? '', notes: student?.notes ?? '' }}>
+    <Row gutter={[20, 0]}>
+      <Col xs={24} sm={12}><Form.Item name="name" label="学生姓名" rules={requiredText('学生姓名')}><Input maxLength={60} placeholder="填写姓名" /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="grade" label="年级" rules={requiredText('年级')}><GradeInput /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="start_date" label="开始学习日期"><DatePicker format={DATE_FORMAT} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col span={24}><Form.Item name="goal" label="学习目标"><Input.TextArea rows={3} maxLength={2000} placeholder="希望解决哪些问题，达到什么目标" /></Form.Item></Col>
+      <Col span={24}><Form.Item name="notes" label="备注"><Input.TextArea rows={2} maxLength={2000} placeholder="其他需要记住的事项（选填）" /></Form.Item></Col>
+    </Row>
+    <footer className="form-footer"><Typography.Text type="secondary">保存后在你的设备间同步</Typography.Text><Button type="primary" htmlType="submit" loading={busy} disabled={busy} icon={<SaveOutlined />}>保存学生档案</Button></footer>
+  </Form>;
 }
+
+type KnowledgeValues = { grade: string; chapter: string; title: string; sort_order?: number | null };
 export function KnowledgeForm({ point, busy, save }: { point?: KnowledgePoint; busy: boolean; save: (value: Partial<KnowledgePoint>) => void }) {
-  return <form onSubmit={e => { e.preventDefault(); const d = new FormData(e.currentTarget); save({ ...(point ? { id: point.id } : {}), grade: text(d, 'grade'), chapter: text(d, 'chapter'), title: text(d, 'title'), sort_order: Number(d.get('sort_order') || 0) }); }}><div className="form-grid"><Field label="年级 *"><input name="grade" required maxLength={40} defaultValue={point?.grade} list="grade-options" /></Field><Field label="章节 *"><input name="chapter" required maxLength={100} defaultValue={point?.chapter} placeholder="填写章节名称" /></Field><Field label="知识点名称 *" wide><input name="title" required maxLength={150} defaultValue={point?.title} placeholder="填写一个可以单独评价掌握情况的知识点" /></Field><Field label="显示顺序"><input name="sort_order" type="number" min="0" max="9999" defaultValue={point?.sort_order ?? 0} /></Field></div><footer className="form-footer"><span>目录共用，掌握情况按学生分别记录</span><Button className="button primary" type="submit" busy={busy}>保存知识点</Button></footer></form>;
+  const onFinish = (values: KnowledgeValues) => {
+    if (busy) return;
+    save({ ...(point ? { id: point.id } : {}), grade: trim(values.grade), chapter: trim(values.chapter), title: trim(values.title), sort_order: values.sort_order ?? 0 });
+  };
+  return <Form<KnowledgeValues> name="knowledge" layout="vertical" disabled={busy} onFinish={onFinish} scrollToFirstError initialValues={{ grade: point?.grade ?? '', chapter: point?.chapter ?? '', title: point?.title ?? '', sort_order: point?.sort_order ?? 0 }}>
+    <Row gutter={[20, 0]}>
+      <Col xs={24} sm={12}><Form.Item name="grade" label="年级" rules={requiredText('年级')}><GradeInput /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="chapter" label="章节" rules={requiredText('章节')}><Input maxLength={100} placeholder="填写章节名称" /></Form.Item></Col>
+      <Col span={24}><Form.Item name="title" label="知识点名称" rules={requiredText('知识点名称')}><Input maxLength={150} placeholder="填写一个可以单独评价掌握情况的知识点" /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="sort_order" label="显示顺序" rules={[{ type: 'integer', min: 0, max: 9999, message: '显示顺序应为 0 至 9999 的整数' }]}><InputNumber min={0} max={9999} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
+    </Row>
+    <footer className="form-footer"><Typography.Text type="secondary">目录共用，掌握情况按学生分别记录</Typography.Text><Button type="primary" htmlType="submit" loading={busy} disabled={busy} icon={<SaveOutlined />}>保存知识点</Button></footer>
+  </Form>;
 }
+
+type MasteryValues = { point: string; status: MasteryStatus; note?: string };
 export function MasteryForm({ student, points, current, busy, save }: { student: Student; points: KnowledgePoint[]; current?: StudentKnowledge; busy: boolean; save: (id: string, status: MasteryStatus, note: string) => void }) {
-  return <form onSubmit={e => { e.preventDefault(); const d = new FormData(e.currentTarget); save(text(d, 'point'), text(d, 'status') as MasteryStatus, text(d, 'note')); }}><div className="form-grid"><Field label="知识点 *" wide><select name="point" required defaultValue={current?.knowledge_point_id ?? ''} disabled={!!current}><option value="" disabled>选择知识点</option>{points.map(p => <option key={p.id} value={p.id}>{p.grade} · {p.chapter} · {p.title}</option>)}</select>{current && <input type="hidden" name="point" value={current.knowledge_point_id} />}</Field><Field label="掌握情况"><select name="status" defaultValue={current?.status ?? 'pending'}>{STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></Field><Field label="判断依据 / 备注" wide><textarea name="note" maxLength={2000} rows={3} defaultValue={current?.note} placeholder="记录练习表现、常见错误或后续巩固重点" /></Field></div><footer className="form-footer"><span>{student.name}的独立掌握记录</span><Button type="submit" busy={busy} className="button primary">保存掌握情况</Button></footer></form>;
+  const onFinish = (values: MasteryValues) => {
+    if (busy) return;
+    save(trim(current?.knowledge_point_id ?? values.point), values.status, trim(values.note));
+  };
+  return <Form<MasteryValues> name="mastery" layout="vertical" disabled={busy} onFinish={onFinish} scrollToFirstError initialValues={{ point: current?.knowledge_point_id, status: current?.status ?? 'pending', note: current?.note ?? '' }}>
+    <Row gutter={[20, 0]}>
+      <Col span={24}><Form.Item name="point" label="知识点" rules={requiredChoice('知识点')}><Select showSearch optionFilterProp="label" disabled={busy || !!current} placeholder="选择知识点" options={points.map(point => ({ value: point.id, label: `${point.grade} · ${point.chapter} · ${point.title}` }))} /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="status" label="掌握情况" rules={requiredChoice('掌握情况')}><Select options={statusOptions} /></Form.Item></Col>
+      <Col span={24}><Form.Item name="note" label="判断依据 / 备注"><Input.TextArea maxLength={2000} rows={3} placeholder="记录练习表现、常见错误或后续巩固重点" /></Form.Item></Col>
+    </Row>
+    <footer className="form-footer"><Typography.Text type="secondary">{student.name}的独立掌握记录</Typography.Text><Button type="primary" htmlType="submit" loading={busy} disabled={busy} icon={<SaveOutlined />}>保存掌握情况</Button></footer>
+  </Form>;
 }
+
+type LessonValues = { student: string; lesson_date: Dayjs; content: string; performance?: string; problems?: string; homework_completion?: string; homework?: string; next_plan?: string };
 export function LessonForm({ data, studentId, lesson, busy, save }: { data: AppData; studentId?: string; lesson?: Lesson; busy: boolean; save: (value: Partial<Lesson> & { knowledge_updates: KnowledgeUpdate[] }, versions: Record<string, string | null>) => void }) {
-  const [selected, setSelected] = useState(lesson?.student_id ?? studentId ?? data.students.find(x => !x.archived)?.id ?? '');
+  const [selected, setSelected] = useState(lesson?.student_id ?? studentId ?? data.students.find(student => !student.archived)?.id ?? '');
+  const [lessonBaseline] = useState(() => lesson ? { id: lesson.id, updated_at: lesson.updated_at } : undefined);
   const [updates, setUpdates] = useState<Record<string, MasteryStatus>>({});
   const [baselines, setBaselines] = useState<Record<string, string | null>>({});
-  const student = data.students.find(x => x.id === selected);
-  const assigned = new Set(data.studentKnowledge.filter(x => x.student_id === selected).map(x => x.knowledge_point_id));
-  const points = data.knowledgePoints.filter(p => !p.archived && (assigned.has(p.id) || (!!student?.grade && p.grade === student.grade)));
-  return <form onSubmit={e => { e.preventDefault(); const d = new FormData(e.currentTarget); const knowledge_updates = Object.entries(updates).map(([id, status]) => ({ knowledge_point_id: id, status, note: text(d, 'problems') || text(d, 'content') })); const versions = Object.fromEntries(knowledge_updates.map(u => [u.knowledge_point_id, baselines[u.knowledge_point_id]])); save({ ...(lesson ? { id: lesson.id, updated_at: lesson.updated_at } : {}), student_id: selected, lesson_date: text(d, 'lesson_date'), content: text(d, 'content'), performance: text(d, 'performance'), problems: text(d, 'problems'), homework_completion: text(d, 'homework_completion'), homework: text(d, 'homework'), next_plan: text(d, 'next_plan'), knowledge_updates }, versions); }}><div className="form-grid"><Field label="学生 *"><select value={selected} required disabled={!!lesson} onChange={e => { setSelected(e.target.value); setUpdates({}); setBaselines({}); }}><option value="" disabled>选择学生</option>{data.students.filter(s => !s.archived || s.id === selected).map(s => <option key={s.id} value={s.id}>{s.name} · {s.grade || '年级未填写'}</option>)}</select></Field><Field label="上课日期 *"><input name="lesson_date" type="date" required defaultValue={lesson?.lesson_date ?? today()} /></Field><Field label="本节课内容 *" wide><textarea name="content" rows={3} maxLength={4000} required defaultValue={lesson?.content} placeholder="今天完成了什么，讲解或练习了哪些内容" /></Field><Field label="课堂表现"><textarea name="performance" rows={2} maxLength={2000} defaultValue={lesson?.performance} placeholder="状态、专注、互动与做得好的地方" /></Field><Field label="暴露问题"><textarea name="problems" rows={2} maxLength={2000} defaultValue={lesson?.problems} placeholder="卡在哪里，出现了什么错误" /></Field><Field label="上次作业完成情况"><select name="homework_completion" defaultValue={lesson?.homework_completion ?? ''}><option value="">未记录</option><option>已完成</option><option>部分完成</option><option>未完成</option><option>本次无作业</option></select></Field><Field label="本次课后作业"><textarea name="homework" rows={2} maxLength={2000} defaultValue={lesson?.homework} placeholder="具体任务（选填）" /></Field><Field label="下节课计划" wide><textarea name="next_plan" rows={2} maxLength={2000} defaultValue={lesson?.next_plan} placeholder="下一步讲解、复习或练习重点" /></Field></div><section className="form-section"><h3>本次掌握情况调整 <span>选填</span></h3><p>只勾选本次需要变更的知识点，与课堂记录一起保存。</p>{points.length ? <div className="knowledge-checks">{points.map(p => { const current = data.studentKnowledge.find(x => x.student_id === selected && x.knowledge_point_id === p.id); return <div className="knowledge-check" key={p.id}><label><input type="checkbox" checked={p.id in updates} onChange={e => { if (e.target.checked) setBaselines(old => ({ ...old, [p.id]: current?.updated_at ?? null })); setUpdates(old => { const next = { ...old }; if (e.target.checked) next[p.id] = current?.status ?? 'pending'; else delete next[p.id]; return next; }); }} /><span>{p.title}<small>{p.chapter}</small></span></label>{p.id in updates && <select aria-label={`${p.title}掌握情况`} value={updates[p.id]} onChange={e => setUpdates({ ...updates, [p.id]: e.target.value as MasteryStatus })}>{STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select>}</div>; })}</div> : <p className="muted">还没有适用知识点，可先保存课堂记录，之后维护知识目录。</p>}</section><footer className="form-footer"><span>保存事实记录后，可单独生成课后反馈</span><Button type="submit" className="button primary" busy={busy}>保存课堂记录</Button></footer></form>;
+  const student = data.students.find(item => item.id === selected);
+  const assigned = new Set(data.studentKnowledge.filter(item => item.student_id === selected).map(item => item.knowledge_point_id));
+  const points = data.knowledgePoints.filter(point => !point.archived && (assigned.has(point.id) || (!!student?.grade && point.grade === student.grade)));
+  const onFinish = (values: LessonValues) => {
+    if (busy) return;
+    const problems = trim(values.problems), content = trim(values.content);
+    const knowledge_updates: KnowledgeUpdate[] = Object.entries(updates).map(([id, status]) => ({ knowledge_point_id: id, status, note: problems || content }));
+    const versions = Object.fromEntries(knowledge_updates.map(update => [update.knowledge_point_id, baselines[update.knowledge_point_id]]));
+    save({ ...lessonBaseline, student_id: trim(values.student), lesson_date: dateText(values.lesson_date), content, performance: trim(values.performance), problems, homework_completion: trim(values.homework_completion), homework: trim(values.homework), next_plan: trim(values.next_plan), knowledge_updates }, versions);
+  };
+  const changeStudent = (id: string) => { setSelected(id); setUpdates({}); setBaselines({}); };
+  const toggleKnowledge = (id: string, checked: boolean, current?: StudentKnowledge) => {
+    if (busy) return;
+    // Capture the current cloud version when checked, never during later renders.
+    setBaselines(previous => { const next = { ...previous }; if (checked) next[id] = current?.updated_at ?? null; else delete next[id]; return next; });
+    setUpdates(previous => { const next = { ...previous }; if (checked) next[id] = current?.status ?? 'pending'; else delete next[id]; return next; });
+  };
+  return <Form<LessonValues> name="lesson" layout="vertical" disabled={busy} onFinish={onFinish} scrollToFirstError initialValues={{ student: selected, lesson_date: dateValue(lesson?.lesson_date ?? today()), content: lesson?.content ?? '', performance: lesson?.performance ?? '', problems: lesson?.problems ?? '', homework_completion: lesson?.homework_completion ?? '', homework: lesson?.homework ?? '', next_plan: lesson?.next_plan ?? '' }}>
+    <Row gutter={[20, 0]}>
+      <Col xs={24} sm={12}><Form.Item name="student" label="学生" rules={requiredChoice('学生')}><Select showSearch optionFilterProp="label" disabled={busy || !!lessonBaseline} placeholder="选择学生" onChange={changeStudent} options={data.students.filter(item => !item.archived || item.id === selected).map(item => ({ value: item.id, label: `${item.name} · ${item.grade || '年级未填写'}` }))} /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="lesson_date" label="上课日期" rules={requiredChoice('上课日期')}><DatePicker format={DATE_FORMAT} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col span={24}><Form.Item name="content" label="本节课内容" rules={requiredText('本节课内容')}><Input.TextArea rows={3} maxLength={4000} placeholder="今天完成了什么，讲解或练习了哪些内容" /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="performance" label="课堂表现"><Input.TextArea rows={2} maxLength={2000} placeholder="状态、专注、互动与做得好的地方" /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="problems" label="暴露问题"><Input.TextArea rows={2} maxLength={2000} placeholder="卡在哪里，出现了什么错误" /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="homework_completion" label="上次作业完成情况"><Select options={['', '已完成', '部分完成', '未完成', '本次无作业'].map(value => ({ value, label: value || '未记录' }))} /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="homework" label="本次课后作业"><Input.TextArea rows={2} maxLength={2000} placeholder="具体任务（选填）" /></Form.Item></Col>
+      <Col span={24}><Form.Item name="next_plan" label="下节课计划"><Input.TextArea rows={2} maxLength={2000} placeholder="下一步讲解、复习或练习重点" /></Form.Item></Col>
+    </Row>
+    <section className="form-section">
+      <Typography.Title level={5}>本次掌握情况调整 <Typography.Text type="secondary">（选填）</Typography.Text></Typography.Title>
+      <Typography.Paragraph type="secondary">只勾选本次需要变更的知识点，与课堂记录一起保存。</Typography.Paragraph>
+      {points.length ? <div className="knowledge-checks">{points.map(point => {
+        const current = data.studentKnowledge.find(item => item.student_id === selected && item.knowledge_point_id === point.id);
+        return <div className="knowledge-check" key={point.id}>
+          <Checkbox disabled={busy} checked={point.id in updates} onChange={event => toggleKnowledge(point.id, event.target.checked, current)}><span>{point.title}<Typography.Text type="secondary" style={{ display: 'block' }}>{point.chapter}</Typography.Text></span></Checkbox>
+          {point.id in updates && <Select aria-label={`${point.title}掌握情况`} disabled={busy} value={updates[point.id]} onChange={(status: MasteryStatus) => setUpdates(previous => ({ ...previous, [point.id]: status }))} options={statusOptions} style={{ minWidth: 112 }} />}
+        </div>;
+      })}</div> : <Typography.Paragraph type="secondary">还没有适用知识点，可先保存课堂记录，之后维护知识目录。</Typography.Paragraph>}
+    </section>
+    <footer className="form-footer"><Typography.Text type="secondary">保存事实记录后，可单独生成课后反馈</Typography.Text><Button type="primary" htmlType="submit" loading={busy} disabled={busy} icon={<SaveOutlined />}>保存课堂记录</Button></footer>
+  </Form>;
 }
+
+type ReportValues = { student: string; report_month: Dayjs; period_start: Dayjs; period_end: Dayjs; context?: string } & Partial<ReportContent>;
+const reportFields = [['state', '近期学习状态'], ['level', '当前学习水平与薄弱点'], ['guidance', '辅导方向及预期'], ['supplement', '补充事项（选填）'], ['plan', '下月教学计划']] as const;
 export function ReportForm({ data, studentId, busy, save, error }: { data: AppData; studentId?: string; busy: boolean; error: string; save: (id: string, start: string, end: string, content?: ReportContent, context?: string) => void }) {
-  const [selected, setSelected] = useState(studentId ?? data.students.find(x => !x.archived)?.id ?? '');
-  const [period, setPeriod] = useState(monthPeriod(today().slice(0, 7)));
+  const [form] = Form.useForm<ReportValues>();
+  const [selected, setSelected] = useState(studentId ?? data.students.find(student => !student.archived)?.id ?? '');
+  const [period, setPeriod] = useState(() => monthPeriod(today().slice(0, 7)));
   const [manual, setManual] = useState(false);
   const [validation, setValidation] = useState('');
-  const lessons = data.lessons.filter(l => l.student_id === selected && l.lesson_date >= period.start && l.lesson_date <= period.end);
-  const exists = data.reports.find(r => r.student_id === selected && r.period_start === period.start && r.period_end === period.end);
-  return <form onSubmit={e => { e.preventDefault(); setValidation(''); try { validatePeriod(period.start, period.end); } catch (err) { setValidation((err as Error).message); return; } const d = new FormData(e.currentTarget); save(selected, period.start, period.end, manual ? { state: text(d, 'state'), level: text(d, 'level'), guidance: text(d, 'guidance'), supplement: text(d, 'supplement'), plan: text(d, 'plan') } : undefined, text(d, 'context')); }}><div className="form-grid"><Field label="学生 *"><select required value={selected} onChange={e => setSelected(e.target.value)}>{data.students.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field><Field label="报告月份"><input type="month" defaultValue={today().slice(0, 7)} onChange={e => { if (e.target.value) setPeriod(monthPeriod(e.target.value)); }} /></Field><Field label="开始日期 *"><input type="date" required value={period.start} onChange={e => setPeriod({ ...period, start: e.target.value })} /></Field><Field label="结束日期 *"><input type="date" required min={period.start} value={period.end} onChange={e => setPeriod({ ...period, end: e.target.value })} /></Field></div><div className="report-scope"><span>已纳入 <strong>{lessons.length}</strong> 次课堂记录</span><span>生成后固定保存</span></div>{exists && <p className="inline-error">这个周期已生成月报，请在报告列表中查看。</p>}<div className="segmented"><button type="button" className={!manual ? 'active' : ''} onClick={() => setManual(false)}><Sparkles size={15} />AI 生成</button><button type="button" className={manual ? 'active' : ''} onClick={() => setManual(true)}>手动整理</button></div>{manual ? <div className="form-grid">{([['state', '近期学习状态'], ['level', '当前学习水平与薄弱点'], ['guidance', '辅导方向及预期'], ['supplement', '补充事项（选填）'], ['plan', '下月教学计划']] as const).map(([key, label]) => <Field label={label} wide key={key}><textarea name={key} rows={3} maxLength={6000} required={key !== 'supplement'} /></Field>)}</div> : <Field label="补充指导（选填）" hint="可补充下月目标、重点和家长配合事项。AI 以课堂记录为依据生成报告。"><textarea name="context" rows={3} maxLength={3000} placeholder="需要在月报中强调或补充的内容" /></Field>}{(validation || error) && <p role="alert" className="inline-error">{validation || error}</p>}<footer className="form-footer"><span>请确认周期与记录，月报生成后不再修改</span><Button type="submit" className="button primary" busy={busy} disabled={!lessons.length || !!exists || !selected}>{manual ? '生成并保存月报' : <><Sparkles size={16} />生成并保存月报</>}</Button></footer></form>;
+  const lessons = period.start && period.end ? data.lessons.filter(lesson => lesson.student_id === selected && lesson.lesson_date >= period.start && lesson.lesson_date <= period.end) : [];
+  const exists = data.reports.find(report => report.student_id === selected && report.period_start === period.start && report.period_end === period.end);
+  const onFinish = (values: ReportValues) => {
+    if (busy || exists || !lessons.length) return;
+    setValidation('');
+    const start = dateText(values.period_start), end = dateText(values.period_end);
+    try { validatePeriod(start, end); } catch (err) { setValidation((err as Error).message); return; }
+    const content = manual ? { state: trim(values.state), level: trim(values.level), guidance: trim(values.guidance), supplement: trim(values.supplement), plan: trim(values.plan) } : undefined;
+    save(trim(values.student), start, end, content, trim(values.context));
+  };
+  const changeMonth = (value: Dayjs | null) => {
+    if (!value) return;
+    const next = monthPeriod(value.format('YYYY-MM'));
+    form.setFieldsValue({ period_start: dateValue(next.start)!, period_end: dateValue(next.end)! });
+    setPeriod(next); setValidation('');
+  };
+  return <Form<ReportValues> form={form} name="report" layout="vertical" disabled={busy} onFinish={onFinish} scrollToFirstError initialValues={{ student: selected, report_month: dayjs(today()), period_start: dateValue(period.start), period_end: dateValue(period.end) }}>
+    <Row gutter={[20, 0]}>
+      <Col xs={24} sm={12}><Form.Item name="student" label="学生" rules={requiredChoice('学生')}><Select showSearch optionFilterProp="label" onChange={setSelected} options={data.students.filter(student => !student.archived).map(student => ({ value: student.id, label: student.name }))} placeholder="选择学生" /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="report_month" label="报告月份"><DatePicker picker="month" format="YYYY年MM月" allowClear={false} onChange={changeMonth} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="period_start" label="开始日期" rules={requiredChoice('开始日期')}><DatePicker format={DATE_FORMAT} onChange={value => { setPeriod(previous => ({ ...previous, start: dateText(value) })); setValidation(''); }} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="period_end" label="结束日期" dependencies={['period_start']} rules={[...requiredChoice('结束日期'), { validator: (_, value: Dayjs | null) => {
+        const start = dateText(form.getFieldValue('period_start')), end = dateText(value);
+        if (!start || !end) return Promise.resolve();
+        try { validatePeriod(start, end); return Promise.resolve(); } catch (err) { return Promise.reject(err); }
+      } }]}><DatePicker format={DATE_FORMAT} onChange={value => { setPeriod(previous => ({ ...previous, end: dateText(value) })); setValidation(''); }} style={{ width: '100%' }} /></Form.Item></Col>
+    </Row>
+    <div className="report-scope"><Typography.Text>已纳入 <strong>{lessons.length}</strong> 次课堂记录</Typography.Text><Typography.Text type="secondary">生成后固定保存</Typography.Text></div>
+    {exists && <Alert type="warning" showIcon title="这个周期已生成月报，请在报告列表中查看。" style={{ marginBottom: 20 }} />}
+    <Segmented disabled={busy} value={manual ? 'manual' : 'ai'} onChange={value => setManual(value === 'manual')} options={[{ value: 'ai', label: 'AI 生成', icon: <ThunderboltOutlined /> }, { value: 'manual', label: '手动整理' }]} style={{ marginBottom: 20 }} />
+    {manual ? <Row gutter={[20, 0]}>{reportFields.map(([key, label]) => <Col span={24} key={key}><Form.Item name={key} label={label} rules={key === 'supplement' ? [] : requiredText(label)}><Input.TextArea rows={3} maxLength={6000} /></Form.Item></Col>)}</Row> : <Form.Item name="context" label="补充指导（选填）" extra="可补充下月目标、重点和家长配合事项。AI 以课堂记录为依据生成报告。"><Input.TextArea rows={3} maxLength={3000} placeholder="需要在月报中强调或补充的内容" /></Form.Item>}
+    {(validation || error) && <Alert type="error" showIcon title={validation || error} />}
+    <footer className="form-footer"><Typography.Text type="secondary">请确认周期与记录，月报生成后不再修改</Typography.Text><Button type="primary" htmlType="submit" loading={busy} disabled={busy || !lessons.length || !!exists || !selected} icon={manual ? <SaveOutlined /> : <ThunderboltOutlined />}>生成并保存月报</Button></footer>
+  </Form>;
 }

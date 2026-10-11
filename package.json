@@ -12,9 +12,11 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@ant-design/icons": "6.3.4",
     "@supabase/supabase-js": "2.117.3",
+    "antd": "6.6.5",
+    "dayjs": "1.11.23",
     "docx": "9.10.0",
-    "lucide-react": "1.55.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

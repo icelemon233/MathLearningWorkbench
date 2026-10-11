@@ -1,44 +1,239 @@
 import { useState } from 'react';
-import { ArrowRight, BookOpen, CalendarDays, ChevronRight, FileText, GraduationCap, Pencil, Plus, Search, Sparkles, Target } from 'lucide-react';
-import { Button, Empty, LinkButton, SectionTitle, StatusBadge } from './components';
+import type { ReactNode } from 'react';
+import type { Dayjs } from 'dayjs';
+import {
+  AimOutlined, ArrowRightOutlined, CalendarOutlined, EditOutlined, FileTextOutlined,
+  PlusOutlined, SearchOutlined, TeamOutlined, ThunderboltOutlined,
+} from '@ant-design/icons';
+import {
+  Avatar, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Flex, Input,
+  Pagination, Progress, Row, Select, Space, Statistic, Table, Tag, Typography,
+} from 'antd';
+import type { TableColumnsType } from 'antd';
 import { displayDate, masteryCounts, monthPeriod, today } from './lib';
 import { STATUS_OPTIONS } from './types';
-import type { AppData, KnowledgePoint, Lesson, MonthlyReport, Student, StudentKnowledge } from './types';
+import type { AppData, KnowledgePoint, Lesson, MasteryStatus, MonthlyReport, Student, StudentKnowledge } from './types';
 
-export function Dashboard({ data, openStudent, addStudent, addLesson, openLesson, newReport }: { data: AppData; openStudent: (id: string) => void; addStudent: () => void; addLesson: () => void; openLesson: (l: Lesson) => void; newReport: () => void }) {
-  const active = data.students.filter(s => !s.archived);
+const { Title, Text, Paragraph } = Typography;
+const statusColors: Record<MasteryStatus, string> = { pending: 'default', weak: 'error', basic: 'gold', mastered: 'success' };
+const progressColors: Record<MasteryStatus, string> = { pending: '#bfbfbf', weak: '#ff4d4f', basic: '#faad14', mastered: '#52c41a' };
+const pagination = { defaultPageSize: 10, showSizeChanger: true, pageSizeOptions: [10, 20, 50], showTotal: (total: number) => `共 ${total} 条` };
+
+function ViewHeading({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+  return <div className="page-heading"><Space orientation="vertical" size={4}>
+    <Title level={2} style={{ margin: 0 }}>{title}</Title><Text type="secondary">{description}</Text>
+  </Space>{action}</div>;
+}
+function MasteryTag({ status }: { status: MasteryStatus }) {
+  return <Tag color={statusColors[status]}>{STATUS_OPTIONS.find(item => item.value === status)?.label}</Tag>;
+}
+function studentOptions(students: Student[]) {
+  return students.map(student => ({ value: student.id, label: `${student.name}${student.archived ? '（已归档）' : ''}` }));
+}
+
+export function Dashboard({ data, openStudent, addStudent, addLesson, openLesson, newReport }: {
+  data: AppData; openStudent: (id: string) => void; addStudent: () => void; addLesson: () => void;
+  openLesson: (lesson: Lesson) => void; newReport: () => void;
+}) {
+  const active = data.students.filter(student => !student.archived);
   const month = monthPeriod(today().slice(0, 7));
-  const monthLessons = data.lessons.filter(l => l.lesson_date >= month.start && l.lesson_date <= month.end);
+  const monthLessons = data.lessons.filter(lesson => lesson.lesson_date >= month.start && lesson.lesson_date <= month.end);
   const counts = masteryCounts(data);
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  return <><section className="welcome"><div><span className="eyebrow">每一堂课，都留下清晰的记录</span><h1>把观察写下来，<br />让下一步更明确。</h1><p>记录课堂，梳理掌握情况，整理给家长的反馈。</p><Button className="button primary" onClick={active.length ? addLesson : addStudent}><Plus size={17} />{active.length ? '记录一节课' : '添加第一位学生'}</Button></div><div className="welcome-art" aria-hidden="true"><div className="coordinate"><span className="equation">y = f(x)</span><div className="axis-x"/><div className="axis-y"/><div className="curve"/><i className="point point-a"/><i className="point point-b"/><span className="x-label">x</span><span className="y-label">y</span></div><div className="paper-note"><Checkmark />每次观察<br /><strong>都是进步的依据</strong></div></div></section><section className="stat-grid"><article className="stat-card"><span><GraduationCap size={18} />正在辅导</span><div>{active.length}<small>位学生</small></div><p>当前在读学生</p></article><article className="stat-card"><span><CalendarDays size={18} />本月课堂</span><div>{monthLessons.length}<small>次记录</small></div><p>{today().slice(0, 7).replace('-', ' 年 ')} 月</p></article><article className="stat-card"><span><Target size={18} />需要关注</span><div>{counts.weak}<small>个薄弱项</small></div><p>按学生与知识点分别统计</p></article><article className="stat-card"><span><FileText size={18} />本月报告</span><div>{data.reports.filter(r => r.period_start >= month.start && r.period_start <= month.end).length}<small>份已生成</small></div><p>生成后固定保存</p></article></section><div className="dashboard-grid"><section className="panel"><SectionTitle title="最近的课堂" detail="从本次记录，接着准备下一次" action={active.length ? <LinkButton onClick={addLesson}>新增记录</LinkButton> : undefined} />{data.lessons.length ? <div className="activity-list">{data.lessons.slice(0, 5).map(l => <button className="activity-row" key={l.id} onClick={() => openLesson(l)}><div className="date-block"><strong>{l.lesson_date.slice(8, 10)}</strong><span>{l.lesson_date.slice(5, 7)} 月</span></div><div className="activity-content"><strong>{data.students.find(s => s.id === l.student_id)?.name ?? '学生记录'}</strong><p>{l.content}</p></div><span className={`mini-tag ${l.feedback ? 'complete' : ''}`}>{l.feedback ? '已有反馈' : '待整理反馈'}</span><ChevronRight size={16} /></button>)}</div> : <Empty icon={<BookOpen size={25} />} title="还没有课堂记录" text="课后花几分钟记下内容、表现和问题。" />}</section><section className="panel mastery-overview"><SectionTitle title="掌握情况概览" detail="已关联知识点的当前状态" /><div className="mastery-total"><strong>{total}</strong><span>项掌握记录</span></div><div className="mastery-bar">{STATUS_OPTIONS.map(s => <span className={`bar-${s.value}`} key={s.value} style={{ width: total ? `${counts[s.value] / total * 100}%` : s.value === 'pending' ? '100%' : '0%' }} />)}</div><div className="mastery-legend">{STATUS_OPTIONS.map(s => <div key={s.value}><StatusBadge status={s.value}/><strong>{counts[s.value]}</strong></div>)}</div><p className="small-note">掌握情况由你确认，AI 只提供建议。</p></section></div><section className="panel"><SectionTitle title="我的学生" detail="查看每位学生的课堂与知识掌握情况" action={<LinkButton onClick={addStudent}>添加学生</LinkButton>} />{active.length ? <div className="student-grid">{active.slice(0, 6).map(s => { const c = masteryCounts(data, s.id); return <button className="student-card" key={s.id} onClick={() => openStudent(s.id)}><span className="avatar">{s.name.slice(0, 1)}</span><div><strong>{s.name}</strong><p>{s.grade || '年级待填写'} · 数学</p></div><ArrowRight size={17} /><footer><span>{data.lessons.filter(l => l.student_id === s.id).length} 次课堂</span><span className={c.weak ? 'weak-text' : ''}>{c.weak ? `${c.weak} 项薄弱` : '查看掌握情况'}</span></footer></button>; })}</div> : <div className="getting-started"><span className="step-number">01</span><div><h3>从学生档案开始</h3><p>添加学生，再维护适用的数学知识目录。</p></div><Button className="button secondary" onClick={addStudent}>添加学生<ArrowRight size={16}/></Button></div>}</section>{active.length > 0 && <div className="report-prompt"><FileText size={24}/><div><h3>把这个月的学习，整理成一份报告</h3><p>汇总课堂表现、薄弱点与后续教学计划。</p></div><Button className="button secondary" onClick={newReport}>生成月报<ArrowRight size={16}/></Button></div>}</>;
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const recent = [...data.lessons].sort((a, b) => b.lesson_date.localeCompare(a.lesson_date) || b.created_at.localeCompare(a.created_at)).slice(0, 5);
+  const columns: TableColumnsType<Lesson> = [
+    { title: '日期', dataIndex: 'lesson_date', width: 112, render: displayDate },
+    { title: '学生', width: 116, render: (_, lesson) => <Button type="link" style={{ padding: 0 }} onClick={() => openStudent(lesson.student_id)}>{data.students.find(student => student.id === lesson.student_id)?.name ?? '学生记录'}</Button> },
+    { title: '课堂内容', dataIndex: 'content', render: value => <Paragraph ellipsis={{ rows: 2, tooltip: value }} style={{ margin: 0 }}>{value}</Paragraph> },
+    { title: '课后反馈', width: 120, render: (_, lesson) => <Tag color={lesson.feedback ? 'success' : 'default'}>{lesson.feedback ? '已有反馈' : '待整理'}</Tag> },
+    { title: '操作', width: 90, render: (_, lesson) => <Button type="link" size="small" onClick={() => openLesson(lesson)}>查看反馈</Button> },
+  ];
+  const stats = [
+    { title: '在读学生', value: active.length, suffix: '位', icon: <TeamOutlined />, note: '当前正在辅导的学生' },
+    { title: '本月课堂', value: monthLessons.length, suffix: '次', icon: <CalendarOutlined />, note: `${today().slice(0, 7).replace('-', ' 年 ')} 月` },
+    { title: '薄弱知识点', value: counts.weak, suffix: '项', icon: <AimOutlined />, note: '按每位学生的知识记录统计' },
+    { title: '本月报告', value: data.reports.filter(report => report.period_start >= month.start && report.period_start <= month.end).length, suffix: '份', icon: <FileTextOutlined />, note: '已生成并固定保存' },
+  ];
+  return <div className="page-stack">
+    <ViewHeading title="学习概览" description="查看近期课堂、学生档案与当前掌握情况。" action={<Button type="primary" icon={<PlusOutlined />} onClick={active.length ? addLesson : addStudent}>{active.length ? '记录课堂' : '添加第一位学生'}</Button>} />
+    <Row gutter={[16, 16]}>{stats.map(stat => <Col xs={12} sm={12} xl={6} key={stat.title}><Card className="stat-card" size="small">
+      <Statistic title={stat.title} value={stat.value} suffix={stat.suffix} prefix={stat.icon} /><Text type="secondary">{stat.note}</Text>
+    </Card></Col>)}</Row>
+    <Row gutter={[16, 16]} align="stretch">
+      <Col xs={24} xl={16}><Card title="最近课堂" style={{ height: '100%' }} extra={active.length > 0 && <Button type="link" onClick={addLesson}>新增记录</Button>}>
+        <Table<Lesson> rowKey="id" columns={columns} dataSource={recent} size="small" pagination={false} scroll={{ x: 640 }}
+          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有课堂记录，先记下一次课堂内容。" /> }} />
+      </Card></Col>
+      <Col xs={24} xl={8}><Card title="掌握情况概览" style={{ height: '100%' }} extra={<Text type="secondary">共 {total} 项</Text>}>
+        <Space orientation="vertical" size={14} style={{ width: '100%' }}>{STATUS_OPTIONS.map(status => <div key={status.value}>
+          <Flex justify="space-between" align="center"><MasteryTag status={status.value} /><Text>{counts[status.value]} 项</Text></Flex>
+          <Progress percent={total ? Math.round(counts[status.value] / total * 100) : 0} showInfo={false} strokeColor={progressColors[status.value]} size="small" />
+        </div>)}<Text type="secondary">统计在读学生的已关联知识点，掌握状态由你确认。</Text></Space>
+      </Card></Col>
+    </Row>
+    <Card title="我的学生" extra={<Button type="link" icon={<PlusOutlined />} onClick={addStudent}>添加学生</Button>}>
+      {active.length > 0 ? <Row gutter={[16, 16]}>{active.slice(0, 6).map(student => {
+        const count = masteryCounts(data, student.id);
+        return <Col xs={24} md={12} xl={8} key={student.id}><Card size="small">
+          <Card.Meta avatar={<Avatar style={{ background: '#e6f4ff', color: '#1677ff' }}>{student.name.slice(0, 1)}</Avatar>} title={student.name} description={`${student.grade || '年级未填写'} · 数学`} />
+          <Flex wrap gap={8} justify="space-between" align="center" style={{ marginTop: 16 }}><Space size={4} wrap>
+            <Tag>{data.lessons.filter(lesson => lesson.student_id === student.id).length} 次课堂</Tag>{count.weak > 0 && <Tag color="error">{count.weak} 项薄弱</Tag>}
+          </Space><Button type="link" size="small" onClick={() => openStudent(student.id)}>查看档案<ArrowRightOutlined /></Button></Flex>
+        </Card></Col>;
+      })}</Row> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="添加学生档案，开始记录课堂与知识掌握情况。"><Button type="primary" onClick={addStudent}>添加学生</Button></Empty>}
+    </Card>
+    {active.length > 0 && <Card size="small"><Flex gap={16} wrap justify="space-between" align="center">
+      <Space><FileTextOutlined style={{ fontSize: 20, color: '#1677ff' }} /><Text>汇总课堂观察、知识掌握与后续计划，生成学习力报告。</Text></Space>
+      <Button onClick={newReport} icon={<PlusOutlined />}>生成月报</Button>
+    </Flex></Card>}
+  </div>;
 }
-function Checkmark() { return <span className="art-check">✓</span>; }
 
-export function StudentsView({ data, selectedId, selectStudent, addStudent, editStudent, addLesson, mastery, assign, insights, busy, archive }: { data: AppData; selectedId: string; selectStudent: (id: string) => void; addStudent: () => void; editStudent: (s: Student) => void; addLesson: () => void; mastery: (current?: StudentKnowledge) => void; assign: () => void; insights: () => void; busy: boolean; archive: (s: Student) => void }) {
-  const [search, setSearch] = useState(''); const [showArchived, setShowArchived] = useState(false); const [status, setStatus] = useState('');
-  const students = data.students.filter(s => (showArchived || !s.archived) && `${s.name}${s.grade}`.includes(search));
-  const selected = data.students.find(s => s.id === selectedId);
-  const rows = data.studentKnowledge.filter(s => s.student_id === selected?.id && (!status || s.status === status) && data.knowledgePoints.some(p => p.id === s.knowledge_point_id && !p.archived));
-  return <><div className="page-heading"><div><span className="eyebrow">STUDENTS</span><h1>学生档案</h1><p>独立记录每位学生的学习目标与掌握情况。</p></div><Button className="button primary" onClick={addStudent}><Plus size={17}/>添加学生</Button></div><div className="students-layout"><aside className="panel student-list-panel"><div className="search-input"><Search size={16}/><input aria-label="搜索学生" placeholder="搜索姓名或年级" value={search} onChange={e => setSearch(e.target.value)}/></div><label className="checkbox-label"><input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)}/>包含已归档学生</label>{students.length ? students.map(s => <button key={s.id} className={`student-list-row ${selected?.id === s.id ? 'selected' : ''}`} onClick={() => selectStudent(s.id)}><span className="avatar small">{s.name.slice(0, 1)}</span><span><strong>{s.name}</strong><small>{s.grade || '年级未填写'}{s.archived ? ' · 已归档' : ''}</small></span><ChevronRight size={15}/></button>) : <p className="list-empty">暂无匹配学生</p>}</aside>{selected ? <div className="student-detail"><section className="panel profile"><div className="profile-top"><span className="avatar large">{selected.name.slice(0, 1)}</span><div><h2>{selected.name}</h2><p>{selected.grade || '年级未填写'} · 数学{selected.start_date ? ` · ${displayDate(selected.start_date)} 开始` : ''}</p></div><button className="icon-button" title="编辑档案" aria-label="编辑学生档案" onClick={() => editStudent(selected)}><Pencil size={17}/></button></div><div className="profile-goal"><span>学习目标</span><p>{selected.goal || '尚未填写学习目标'}</p></div>{selected.notes && <p className="profile-notes">{selected.notes}</p>}<div className="profile-actions"><Button className="button primary" onClick={addLesson} disabled={selected.archived}><Plus size={15}/>记录课堂</Button><Button className="button secondary" onClick={insights} busy={busy}><Sparkles size={15}/>AI 学情建议</Button><button className="text-button archive-button" onClick={() => archive(selected)}>{selected.archived ? '恢复学生' : '归档学生'}</button></div></section><section className="panel"><SectionTitle title="知识掌握情况" detail="每次调整保留当前判断与依据" action={<Button className="button secondary compact" onClick={() => mastery()} disabled={selected.archived}><Plus size={15}/>关联知识点</Button>}/><div className="table-toolbar"><select aria-label="筛选掌握状态" value={status} onChange={e => setStatus(e.target.value)}><option value="">全部掌握状态</option>{STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select><button className="text-button" disabled={busy || selected.archived || !selected.grade} onClick={assign}>关联本年级目录</button></div>{rows.length ? <div className="table-scroll"><table><thead><tr><th>知识点</th><th>掌握情况</th><th>判断依据</th><th/></tr></thead><tbody>{rows.map(r => { const p = data.knowledgePoints.find(x => x.id === r.knowledge_point_id)!; return <tr key={r.id}><td><strong>{p.title}</strong><small>{p.chapter}</small></td><td><StatusBadge status={r.status}/></td><td className="note-cell">{r.note || '—'}</td><td><button className="icon-button" aria-label={`修改${p.title}掌握情况`} disabled={selected.archived} onClick={() => mastery(r)}><Pencil size={15}/></button></td></tr>; })}</tbody></table></div> : <Empty icon={<Target size={25}/>} title={status ? '没有这个状态的知识点' : '关联适用的知识点'} text="从共用目录中选择知识点，开始记录掌握情况。" />}</section></div> : <section className="panel"><Empty icon={<GraduationCap size={26}/>} title="选择或添加一位学生" text="学生档案、掌握情况和课堂记录会显示在这里。" action={<Button className="button primary" onClick={addStudent}>添加学生</Button>}/></section>}</div></>;
+type KnowledgeRow = StudentKnowledge & { point: KnowledgePoint };
+
+export function StudentsView({ data, selectedId, selectStudent, addStudent, editStudent, addLesson, mastery, assign, insights, busy, archive }: {
+  data: AppData; selectedId: string; selectStudent: (id: string) => void; addStudent: () => void;
+  editStudent: (student: Student) => void; addLesson: () => void; mastery: (current?: StudentKnowledge) => void;
+  assign: () => void; insights: () => void; busy: boolean; archive: (student: Student) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [status, setStatus] = useState<MasteryStatus>();
+  const students = data.students.filter(student => (showArchived || !student.archived) && `${student.name}${student.grade}`.includes(search.trim()));
+  const selected = data.students.find(student => student.id === selectedId);
+  const points = new Map(data.knowledgePoints.map(point => [point.id, point]));
+  const rows: KnowledgeRow[] = data.studentKnowledge.flatMap(current => {
+    const point = points.get(current.knowledge_point_id);
+    return current.student_id === selected?.id && (!status || current.status === status) && point && !point.archived ? [{ ...current, point }] : [];
+  });
+  const columns: TableColumnsType<KnowledgeRow> = [
+    { title: '知识点', width: 240, render: (_, row) => <Space orientation="vertical" size={2}><Text strong>{row.point.title}</Text><Text type="secondary">{row.point.grade} · {row.point.chapter}</Text></Space> },
+    { title: '掌握情况', dataIndex: 'status', width: 120, render: value => <MasteryTag status={value} /> },
+    { title: '判断依据', dataIndex: 'note', render: value => <Paragraph ellipsis={{ rows: 3, tooltip: value }} style={{ margin: 0 }}>{value || '—'}</Paragraph> },
+    { title: '操作', width: 96, render: (_, row) => <Button type="link" size="small" icon={<EditOutlined />} aria-label={`修改${row.point.title}掌握情况`} disabled={busy || selected?.archived} onClick={() => mastery(row)}>修改</Button> },
+  ];
+  return <div className="page-stack">
+    <ViewHeading title="学生档案" description="独立记录每位学生的学习目标、课堂情况与知识掌握。" action={<Button type="primary" icon={<PlusOutlined />} disabled={busy} onClick={addStudent}>添加学生</Button>} />
+    <Row gutter={[16, 16]} align="top">
+      <Col xs={24} lg={7} xl={6}><Card title="学生列表" size="small" extra={<Text type="secondary">{students.length} 位</Text>}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+          <Input prefix={<SearchOutlined />} aria-label="搜索学生" placeholder="搜索姓名或年级" allowClear value={search} onChange={event => setSearch(event.target.value)} />
+          <Checkbox checked={showArchived} onChange={event => setShowArchived(event.target.checked)}>包含已归档学生</Checkbox>
+          <Space orientation="vertical" size={4} className="student-picker-list" style={{ width: '100%' }}>{students.map(student => <Button block key={student.id} className="student-list-row"
+            type={selected?.id === student.id ? 'primary' : 'text'} onClick={() => selectStudent(student.id)} style={{ height: 'auto', padding: 12, textAlign: 'left', justifyContent: 'flex-start' }}>
+            <Avatar size={32} style={{ background: '#e6f4ff', color: '#1677ff', flexShrink: 0 }}>{student.name.slice(0, 1)}</Avatar>
+            <Space orientation="vertical" size={0} style={{ minWidth: 0, alignItems: 'flex-start' }}><Text strong style={{ color: 'inherit' }}>{student.name}</Text>
+              <Text style={{ color: 'inherit', fontSize: 12, opacity: 0.75 }}>{student.grade || '年级未填写'}{student.archived ? ' · 已归档' : ''}</Text>
+            </Space>
+          </Button>)}{students.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无匹配学生" />}</Space>
+        </Space>
+      </Card></Col>
+      <Col xs={24} lg={17} xl={18}>{selected ? <div className="page-stack">
+        <Card className="student-profile" extra={<Button icon={<EditOutlined />} disabled={busy} onClick={() => editStudent(selected)}>编辑档案</Button>}
+          title={<Space><Avatar style={{ background: '#e6f4ff', color: '#1677ff' }}>{selected.name.slice(0, 1)}</Avatar><Text strong>{selected.name}</Text><Tag color={selected.archived ? 'default' : 'blue'}>{selected.archived ? '已归档' : '在读'}</Tag></Space>}>
+          <Descriptions size="small" column={1} items={[
+            { key: 'grade', label: '年级学科', children: `${selected.grade || '年级未填写'} · 数学` },
+            { key: 'start', label: '开始日期', children: selected.start_date ? displayDate(selected.start_date) : '尚未填写' },
+            { key: 'goal', label: '学习目标', children: <Text style={{ whiteSpace: 'pre-wrap' }}>{selected.goal || '尚未填写学习目标'}</Text> },
+            ...(selected.notes ? [{ key: 'notes', label: '备注', children: <Text style={{ whiteSpace: 'pre-wrap' }}>{selected.notes}</Text> }] : []),
+          ]} />
+          <Space wrap style={{ marginTop: 16 }}>
+            <Button type="primary" icon={<PlusOutlined />} disabled={selected.archived || busy} onClick={addLesson}>记录课堂</Button>
+            <Button icon={<ThunderboltOutlined />} loading={busy} onClick={insights}>AI 学情建议</Button>
+            <Button type="text" danger={!selected.archived} disabled={busy} onClick={() => archive(selected)}>{selected.archived ? '恢复学生' : '归档学生'}</Button>
+          </Space>
+        </Card>
+        <Card title="知识掌握情况" extra={<Button icon={<PlusOutlined />} disabled={selected.archived || busy} onClick={() => mastery()}>关联知识点</Button>}>
+          <div className="filter-bar"><Select<MasteryStatus> aria-label="筛选掌握状态" placeholder="全部掌握状态" allowClear value={status} onChange={setStatus} options={[...STATUS_OPTIONS]} style={{ width: 176 }} />
+            <Button type="link" disabled={busy || selected.archived || !selected.grade} onClick={assign}>关联本年级目录</Button><Text type="secondary">{rows.length} 项知识记录</Text>
+          </div>
+          <Table<KnowledgeRow> key={`${selected.id}:${status ?? 'all'}`} rowKey="id" columns={columns} dataSource={rows} size="small" pagination={pagination} scroll={{ x: 720 }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={status ? '没有这个状态的知识点' : '从共用目录关联知识点，开始记录掌握情况。'} /> }} />
+        </Card>
+      </div> : <Card><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="选择或添加一位学生，查看档案与掌握情况。"><Button type="primary" disabled={busy} onClick={addStudent}>添加学生</Button></Empty></Card>}</Col>
+    </Row>
+  </div>;
 }
 
-export function LessonsView({ data, add, open, edit }: { data: AppData; add: () => void; open: (l: Lesson) => void; edit: (l: Lesson) => void }) {
-  const [student, setStudent] = useState(''); const [month, setMonth] = useState(''); const [search, setSearch] = useState('');
-  const rows = data.lessons.filter(l => (!student || l.student_id === student) && (!month || l.lesson_date.startsWith(month)) && `${l.content}${l.problems}`.includes(search));
-  return <><div className="page-heading"><div><span className="eyebrow">CLASS NOTES</span><h1>课堂记录</h1><p>简短记录事实，再整理为清楚的课后反馈。</p></div><Button className="button primary" disabled={!data.students.some(s => !s.archived)} onClick={add}><Plus size={17}/>记录课堂</Button></div><section className="panel"><div className="filter-bar"><select aria-label="按学生筛选课堂" value={student} onChange={e => setStudent(e.target.value)}><option value="">全部学生</option>{data.students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><input aria-label="按月份筛选课堂" type="month" value={month} onChange={e => setMonth(e.target.value)}/><div className="search-input"><Search size={16}/><input aria-label="搜索课堂内容" placeholder="搜索内容或问题" value={search} onChange={e => setSearch(e.target.value)}/></div>{(student || month || search) && <button className="text-button" onClick={() => { setStudent(''); setMonth(''); setSearch(''); }}>清除筛选</button>}</div>{rows.length ? <div className="lesson-grid">{rows.map(l => <article className="lesson-card" key={l.id}><header><span className="date-text">{displayDate(l.lesson_date)}</span><span className={`mini-tag ${l.feedback ? 'complete' : ''}`}>{l.feedback ? '已有反馈' : '待整理反馈'}</span></header><h3>{data.students.find(s => s.id === l.student_id)?.name ?? '学生记录'}</h3><p className="lesson-content">{l.content}</p>{l.problems && <p className="lesson-problem"><span>问题</span>{l.problems}</p>}<footer><button className="text-button" onClick={() => edit(l)}><Pencil size={14}/>编辑记录</button><button className="text-button" onClick={() => open(l)}>查看 / 整理反馈<ArrowRight size={14}/></button></footer></article>)}</div> : <Empty icon={<BookOpen size={26}/>} title="没有课堂记录" text="添加一次课堂记录，或调整筛选条件。" />}</section></>;
+export function LessonsView({ data, add, open, edit }: { data: AppData; add: () => void; open: (lesson: Lesson) => void; edit: (lesson: Lesson) => void }) {
+  const [student, setStudent] = useState<string>();
+  const [month, setMonth] = useState<Dayjs | null>(null);
+  const [search, setSearch] = useState('');
+  const monthString = month?.format('YYYY-MM');
+  const rows = data.lessons.filter(lesson => (!student || lesson.student_id === student) && (!monthString || lesson.lesson_date.startsWith(monthString)) && `${lesson.content}${lesson.problems}`.includes(search.trim()));
+  const filtered = Boolean(student || month || search);
+  const canAdd = data.students.some(item => !item.archived);
+  const columns: TableColumnsType<Lesson> = [
+    { title: '课堂日期', dataIndex: 'lesson_date', width: 120, render: displayDate, sorter: (a, b) => a.lesson_date.localeCompare(b.lesson_date), defaultSortOrder: 'descend' },
+    { title: '学生', width: 120, render: (_, lesson) => data.students.find(item => item.id === lesson.student_id)?.name ?? '学生记录' },
+    { title: '课堂内容', dataIndex: 'content', width: 260, render: value => <Paragraph ellipsis={{ rows: 3, tooltip: value }} style={{ margin: 0 }}>{value}</Paragraph> },
+    { title: '课堂问题', dataIndex: 'problems', width: 220, render: value => <Paragraph ellipsis={{ rows: 3, tooltip: value }} style={{ margin: 0 }}>{value || '—'}</Paragraph> },
+    { title: '课后反馈', width: 112, render: (_, lesson) => <Tag color={lesson.feedback ? 'success' : 'default'}>{lesson.feedback ? '已有反馈' : '待整理'}</Tag> },
+    { title: '操作', width: 190, render: (_, lesson) => <Space size={0}><Button type="link" size="small" icon={<EditOutlined />} onClick={() => edit(lesson)}>编辑</Button><Button type="link" size="small" onClick={() => open(lesson)}>查看 / 整理反馈</Button></Space> },
+  ];
+  return <div className="page-stack">
+    <ViewHeading title="课堂记录" description="记录课堂事实，再整理为清楚的课后反馈。" action={<Button type="primary" icon={<PlusOutlined />} disabled={!canAdd} onClick={add}>记录课堂</Button>} />
+    <Card><div className="filter-bar">
+      <Select aria-label="按学生筛选课堂" placeholder="全部学生" showSearch optionFilterProp="label" allowClear value={student} onChange={setStudent} options={studentOptions(data.students)} style={{ width: 180 }} />
+      <DatePicker picker="month" aria-label="按月份筛选课堂" placeholder="全部月份" value={month} onChange={setMonth} style={{ width: 160 }} />
+      <Input prefix={<SearchOutlined />} aria-label="搜索课堂内容" placeholder="搜索内容或问题" value={search} allowClear onChange={event => setSearch(event.target.value)} style={{ width: 260, maxWidth: '100%' }} />
+      {filtered && <Button type="link" onClick={() => { setStudent(undefined); setMonth(null); setSearch(''); }}>清除筛选</Button>}
+    </div>
+      <Table<Lesson> key={`${student ?? ''}:${monthString ?? ''}:${search}`} rowKey="id" columns={columns} dataSource={rows} size="small" pagination={pagination} scroll={{ x: 1020 }}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? '没有匹配的课堂记录，请调整筛选条件。' : '还没有课堂记录。'}>{!filtered && <Button type="primary" disabled={!canAdd} onClick={add}>记录课堂</Button>}</Empty> }} />
+    </Card>
+  </div>;
 }
 
-export function KnowledgeView({ data, add, edit, archive }: { data: AppData; add: () => void; edit: (p: KnowledgePoint) => void; archive: (p: KnowledgePoint) => void }) {
-  const [grade, setGrade] = useState(''); const [search, setSearch] = useState(''); const [archived, setArchived] = useState(false);
-  const grades = [...new Set(data.knowledgePoints.map(p => p.grade))];
-  const rows = data.knowledgePoints.filter(p => (archived || !p.archived) && (!grade || p.grade === grade) && `${p.chapter}${p.title}`.includes(search));
-  return <><div className="page-heading"><div><span className="eyebrow">KNOWLEDGE LIBRARY</span><h1>数学知识目录</h1><p>手动维护共用目录，为学生选择适用知识点。</p></div><Button className="button primary" onClick={add}><Plus size={17}/>添加知识点</Button></div><section className="panel"><div className="filter-bar"><select aria-label="筛选知识目录年级" value={grade} onChange={e => setGrade(e.target.value)}><option value="">全部年级</option>{grades.map(g => <option key={g}>{g}</option>)}</select><div className="search-input"><Search size={16}/><input aria-label="搜索知识点" value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索章节或知识点"/></div><label className="checkbox-label"><input type="checkbox" checked={archived} onChange={e => setArchived(e.target.checked)}/>包含已归档</label></div>{rows.length ? <div className="table-scroll"><table><thead><tr><th>年级</th><th>章节</th><th>知识点</th><th>操作</th></tr></thead><tbody>{rows.map(p => <tr key={p.id}><td>{p.grade}</td><td>{p.chapter}</td><td><strong>{p.title}</strong>{p.archived && <small>已归档</small>}</td><td><div className="row-actions"><button className="icon-button" aria-label={`编辑${p.title}`} onClick={() => edit(p)}><Pencil size={15}/></button><button className="text-button" onClick={() => archive(p)}>{p.archived ? '恢复' : '归档'}</button></div></td></tr>)}</tbody></table></div> : <Empty icon={<BookOpen size={25}/>} title="建立你的数学知识目录" text="按年级和章节添加知识点，后续可继续补充。" action={<Button className="button secondary" onClick={add}><Plus size={15}/>添加知识点</Button>}/>}</section></>;
+export function KnowledgeView({ data, add, edit, archive }: { data: AppData; add: () => void; edit: (point: KnowledgePoint) => void; archive: (point: KnowledgePoint) => void }) {
+  const [grade, setGrade] = useState<string>();
+  const [search, setSearch] = useState('');
+  const [archived, setArchived] = useState(false);
+  const grades = [...new Set(data.knowledgePoints.map(point => point.grade))];
+  const rows = data.knowledgePoints.filter(point => (archived || !point.archived) && (!grade || point.grade === grade) && `${point.chapter}${point.title}`.includes(search.trim()));
+  const columns: TableColumnsType<KnowledgePoint> = [
+    { title: '年级', dataIndex: 'grade', width: 128 },
+    { title: '章节', dataIndex: 'chapter', width: 210 },
+    { title: '知识点', render: (_, point) => <Space wrap><Text strong>{point.title}</Text>{point.archived && <Tag>已归档</Tag>}</Space> },
+    { title: '操作', width: 156, render: (_, point) => <Space size={0}><Button type="link" size="small" icon={<EditOutlined />} aria-label={`编辑${point.title}`} onClick={() => edit(point)}>编辑</Button><Button type="link" size="small" onClick={() => archive(point)}>{point.archived ? '恢复' : '归档'}</Button></Space> },
+  ];
+  return <div className="page-stack">
+    <ViewHeading title="数学知识目录" description="按年级和章节维护共用目录，为每位学生关联适用知识点。" action={<Button type="primary" icon={<PlusOutlined />} onClick={add}>添加知识点</Button>} />
+    <Card title="共用知识目录" extra={<Text type="secondary">{rows.length} 个知识点</Text>}><div className="filter-bar">
+      <Select aria-label="筛选知识目录年级" placeholder="全部年级" allowClear value={grade} onChange={setGrade} options={grades.map(value => ({ value, label: value }))} style={{ width: 180 }} />
+      <Input prefix={<SearchOutlined />} aria-label="搜索知识点" placeholder="搜索章节或知识点" value={search} allowClear onChange={event => setSearch(event.target.value)} style={{ width: 280, maxWidth: '100%' }} />
+      <Checkbox checked={archived} onChange={event => setArchived(event.target.checked)}>包含已归档</Checkbox>
+    </div>
+      <Table<KnowledgePoint> key={`${grade ?? ''}:${search}:${archived}`} rowKey="id" columns={columns} dataSource={rows} size="small" pagination={pagination} scroll={{ x: 720 }}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={grade || search ? '没有匹配的知识点，请调整筛选条件。' : '按年级和章节添加知识点，建立共用目录。'}><Button icon={<PlusOutlined />} onClick={add}>添加知识点</Button></Empty> }} />
+    </Card>
+  </div>;
 }
 
-export function ReportsView({ data, add, open }: { data: AppData; add: () => void; open: (r: MonthlyReport) => void }) {
-  const [student, setStudent] = useState('');
-  const rows = data.reports.filter(r => !student || r.student_id === student);
-  return <><div className="page-heading"><div><span className="eyebrow">MONTHLY REPORTS</span><h1>学习力报告</h1><p>汇总一个月的观察、学习水平与后续计划。</p></div><Button className="button primary" disabled={!data.students.some(s => !s.archived)} onClick={add}><Plus size={17}/>生成月报</Button></div><section className="panel"><div className="filter-bar"><select aria-label="按学生筛选月报" value={student} onChange={e => setStudent(e.target.value)}><option value="">全部学生</option>{data.students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><span className="muted">{rows.length} 份已保存 · 生成后固定归档</span></div>{rows.length ? <div className="report-grid">{rows.map(r => <button key={r.id} className="report-card" onClick={() => open(r)}><div className="report-card-cover"><span className="report-card-icon"><FileText size={30}/></span><span>{r.period_start.slice(0, 7).replace('-', ' / ')}</span><h3>{r.snapshot.student.name}</h3><p>数学学习力报告</p><div className="report-rule"/></div><footer><div><strong>{displayDate(r.period_start)} — {displayDate(r.period_end)}</strong><span>{r.snapshot.lessons.length} 次课堂记录</span></div><ArrowUpRightIcon/></footer></button>)}</div> : <Empty icon={<FileText size={26}/>} title="还没有月度报告" text="记录课堂后，选择学生和周期生成第一份报告。" />}</section></>;
+export function ReportsView({ data, add, open }: { data: AppData; add: () => void; open: (report: MonthlyReport) => void }) {
+  const [student, setStudent] = useState<string>();
+  const [page, setPage] = useState(1);
+  const rows = data.reports.filter(report => !student || report.student_id === student);
+  const pageSize = 6;
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(rows.length / pageSize)));
+  const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  return <div className="page-stack">
+    <ViewHeading title="学习力报告" description="汇总所选周期的课堂观察、学习水平与后续计划。" action={<Button type="primary" icon={<PlusOutlined />} disabled={!data.students.some(item => !item.archived)} onClick={add}>生成月报</Button>} />
+    <Card><div className="filter-bar">
+      <Select aria-label="按学生筛选月报" placeholder="全部学生" showSearch optionFilterProp="label" allowClear value={student} onChange={value => { setStudent(value); setPage(1); }} options={studentOptions(data.students)} style={{ width: 180 }} />
+      <Text type="secondary">{rows.length} 份已保存 · 生成后固定归档</Text>
+    </div>
+      {rows.length > 0 ? <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+        <Row gutter={[16, 16]}>{pageRows.map(report => <Col xs={24} md={12} xl={8} key={report.id}>
+          <Card className="report-card" size="small" style={{ height: '100%' }} title={<Space><FileTextOutlined style={{ color: '#1677ff' }} /><Text strong>{report.snapshot.student.name}</Text></Space>} extra={<Tag color="blue">已归档</Tag>}>
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}><Text strong>{report.title}</Text>
+              <Space orientation="vertical" size={4}><Text type="secondary">{displayDate(report.period_start)} — {displayDate(report.period_end)}</Text><Text>{report.snapshot.lessons.length} 次课堂记录</Text><Text type="secondary">生成于 {displayDate(report.created_at)}</Text></Space>
+              <Button block onClick={() => open(report)}>查看与导出<ArrowRightOutlined /></Button>
+            </Space>
+          </Card>
+        </Col>)}</Row>
+        <Pagination align="end" responsive current={currentPage} pageSize={pageSize} total={rows.length} onChange={setPage} showSizeChanger={false} hideOnSinglePage showTotal={total => `共 ${total} 份报告`} />
+      </Space> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={student ? '这位学生还没有学习力报告。' : '记录课堂后，选择学生与周期生成第一份报告。'} />}
+    </Card>
+  </div>;
 }
-function ArrowUpRightIcon() { return <ArrowRight size={18}/>; }
