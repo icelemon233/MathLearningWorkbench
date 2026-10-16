@@ -5,7 +5,7 @@ import type { ColorPickerProps } from 'antd';
 import { BgColorsOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import { Dialog } from './components';
-import { accentBackground, accentTextColor, contrastRatio, DEFAULT_THEME_COLOR, normalizeThemeColor, solidTextColor, THEME_PRESETS, THEME_STORAGE_KEY } from './theme-settings';
+import { accentBackground, accentTextColor, DEFAULT_THEME_COLOR, normalizeThemeColor, solidTextColor, THEME_PRESETS, THEME_STORAGE_KEY } from './theme-settings';
 
 const ThemeContext = createContext({ color: DEFAULT_THEME_COLOR, setColor: (_color: string) => {}, remembered: true });
 function initialColor() {
@@ -32,27 +32,28 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', changed);
   }, []);
   const accent = accentTextColor(color);
-  const controlColor = contrastRatio(color, '#ffffff') < 3 ? accent : color;
-  const background = accentBackground(controlColor);
+  const background = accentBackground(color);
   useEffect(() => {
     // Modals and popups are portals outside AntdApp, so share colors at the root.
-    document.documentElement.style.setProperty('--workbench-primary', controlColor);
+    document.documentElement.style.setProperty('--workbench-primary', color);
     document.documentElement.style.setProperty('--workbench-accent', accent);
     document.documentElement.style.setProperty('--workbench-accent-bg', background);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', controlColor);
-  }, [controlColor, accent, background]);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
+  }, [color, accent, background]);
   const value = useMemo(() => ({ color, setColor, remembered }), [color, setColor, remembered]);
   return <ThemeContext.Provider value={value}>
     <ConfigProvider locale={zhCN} theme={{ token: {
-      colorPrimary: controlColor, colorPrimaryText: accent, colorLink: accent, colorLinkHover: accent,
+      colorPrimary: color, colorPrimaryText: accent, colorLink: accent, colorLinkHover: accent,
       colorBgLayout: '#f5f7fa', borderRadius: 8,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
     }, components: {
       Layout: { headerBg: '#ffffff', siderBg: '#ffffff' },
       Menu: { itemBorderRadius: 6, itemSelectedColor: accent, itemSelectedBg: background },
-      Button: { primaryColor: solidTextColor(controlColor) },
+      Button: { primaryColor: solidTextColor(color) },
+      Checkbox: { colorWhite: solidTextColor(color) },
+      Radio: { colorWhite: solidTextColor(color), buttonSolidCheckedColor: solidTextColor(color) },
     } }}>
-      <AntdApp style={{ '--workbench-primary': controlColor, '--workbench-accent': accent, '--workbench-accent-bg': background } as CSSProperties}>
+      <AntdApp style={{ '--workbench-primary': color, '--workbench-accent': accent, '--workbench-accent-bg': background } as CSSProperties}>
         {children}
       </AntdApp>
     </ConfigProvider>
@@ -90,7 +91,7 @@ function ThemeSettings({ close }: { close: () => void }) {
           <Button icon={<span className="theme-swatch" style={{ background: color }} aria-hidden />}>打开色盘</Button>
         </ColorPicker>
       </Form.Item>
-      <Form.Item label="颜色值" htmlFor="theme-color-value" validateStatus={error ? 'error' : undefined} help={error || '支持 HEX 颜色值；过浅的颜色会自动生成清晰的强调色。'} style={{ marginBottom: 0 }}>
+      <Form.Item label="颜色值" htmlFor="theme-color-value" validateStatus={error ? 'error' : undefined} help={error || '主题色按所选颜色应用，文字对比度会自动调整。'} style={{ marginBottom: 0 }}>
         <Space.Compact className="full-width"><Input id="theme-color-value" aria-label="颜色值" value={input} maxLength={7}
           placeholder="#0f766e" onChange={event => { setInput(event.target.value); setError(''); }} />
           <Button type="primary" htmlType="submit">应用颜色</Button></Space.Compact>
