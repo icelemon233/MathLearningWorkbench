@@ -39,6 +39,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.style.setProperty('--workbench-primary', controlColor);
     document.documentElement.style.setProperty('--workbench-accent', accent);
     document.documentElement.style.setProperty('--workbench-accent-bg', background);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', controlColor);
   }, [controlColor, accent, background]);
   const value = useMemo(() => ({ color, setColor, remembered }), [color, setColor, remembered]);
   return <ThemeContext.Provider value={value}>
