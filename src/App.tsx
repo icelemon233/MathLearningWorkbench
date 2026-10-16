@@ -49,12 +49,15 @@ export default function App() {
   const screens = Grid.useBreakpoint();
   const [view, setView] = useState<View>('dashboard');
   const [selectedId, setSelectedId] = useState('');
+  const [studentCategory, setStudentCategory] = useState<'active' | 'archived'>('active');
   const [modal, setModal] = useState<Modal | null>(null);
   const [busy, setBusy] = useState(false);
   const operationPending = useRef(false);
   const [mobileNav, setMobileNav] = useState(false);
   const [modalError, setModalError] = useState('');
-  const currentStudent = data.students.find(student => student.id === selectedId) ?? data.students.find(student => !student.archived);
+  const studentScope = view === 'students' ? data.students.filter(student => student.archived === (studentCategory === 'archived')) : data.students;
+  const currentStudent = studentScope.find(student => student.id === selectedId)
+    ?? (view === 'students' ? studentScope[0] : data.students.find(student => !student.archived));
   const close = useCallback(() => { setModal(null); setModalError(''); }, []);
   const open = (next: Modal) => { setModalError(''); setModal(next); };
   const notify = (content: string, error = false) => {
@@ -81,7 +84,7 @@ export default function App() {
   const addStudent = () => open({ type: 'student' });
   const addLesson = () => open({ type: 'lesson' });
   const newReport = () => open({ type: 'report' });
-  const openStudent = (id: string) => { setSelectedId(id); setView('students'); };
+  const openStudent = (id: string) => { setSelectedId(id); setStudentCategory(data.students.find(student => student.id === id)?.archived ? 'archived' : 'active'); setView('students'); };
   const openFeedback = (lesson: Lesson) => { setSelectedId(lesson.student_id); open({ type: 'feedback', lesson }); };
   const navigate = (key: string) => { setView(key as View); setMobileNav(false); };
   const menu = <Menu mode="inline" selectedKeys={[view]} onClick={({ key }) => navigate(key)} items={NAV.map(item => ({
@@ -140,6 +143,7 @@ export default function App() {
         <Suspense fallback={<Card><Skeleton active /></Card>}>
         {view === 'dashboard' && <Dashboard data={data} openStudent={openStudent} addStudent={addStudent} addLesson={addLesson} openLesson={openFeedback} newReport={newReport} />}
         {view === 'students' && <StudentsView data={data} selectedId={currentStudent?.id ?? ''} selectStudent={setSelectedId}
+          category={studentCategory} changeCategory={setStudentCategory}
           addStudent={addStudent} editStudent={student => open({ type: 'student', student })} addLesson={addLesson}
           mastery={current => open({ type: 'mastery', current })} busy={busy}
           assign={() => { if (currentStudent) void run(() => assignPoints(currentStudent.id, data.knowledgePoints.filter(point => !point.archived && point.grade === currentStudent.grade)), '已关联年级目录，已有掌握记录保持原值'); }}
@@ -162,7 +166,7 @@ export default function App() {
       close={busy ? () => {} : close} busy={busy} wide={['lesson', 'report', 'report-view'].includes(modal.type)}>
       <Suspense fallback={<Skeleton active />}>
       {modal.type === 'student' && <StudentForm student={modal.student} busy={busy} save={value => {
-        void run(async () => { const saved = await saveStudent(value); setSelectedId(saved.id); setView('students'); }).then(ok => { if (ok) close(); });
+        void run(async () => { const saved = await saveStudent(value); setSelectedId(saved.id); setStudentCategory(saved.archived ? 'archived' : 'active'); setView('students'); }).then(ok => { if (ok) close(); });
       }} />}
       {modal.type === 'knowledge' && <KnowledgeForm point={modal.point} busy={busy} save={value => { void run(() => saveKnowledgePoint(value)).then(ok => { if (ok) close(); }); }} />}
       {modal.type === 'mastery' && currentStudent && <MasteryForm student={currentStudent}

@@ -91,16 +91,17 @@ export function Dashboard({ data, openStudent, addStudent, addLesson, openLesson
 
 type KnowledgeRow = StudentKnowledge & { point: KnowledgePoint };
 
-export function StudentsView({ data, selectedId, selectStudent, addStudent, editStudent, addLesson, mastery, assign, insights, busy, archive }: {
+export function StudentsView({ data, selectedId, selectStudent, category, changeCategory, addStudent, editStudent, addLesson, mastery, assign, insights, busy, archive }: {
   data: AppData; selectedId: string; selectStudent: (id: string) => void; addStudent: () => void;
+  category: 'active' | 'archived'; changeCategory: (category: 'active' | 'archived') => void;
   editStudent: (student: Student) => void; addLesson: () => void; mastery: (current?: StudentKnowledge) => void;
   assign: () => void; insights: () => void; busy: boolean; archive: (student: Student) => void;
 }) {
   const [search, setSearch] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
   const [status, setStatus] = useState<MasteryStatus>();
-  const students = data.students.filter(student => (showArchived || !student.archived) && `${student.name}${student.grade}`.includes(search.trim()));
-  const selected = data.students.find(student => student.id === selectedId);
+  const categoryLabel = category === 'active' ? '在读学生' : '已归档学生';
+  const students = data.students.filter(student => student.archived === (category === 'archived') && `${student.name}${student.grade}`.includes(search.trim()));
+  const selected = data.students.find(student => student.id === selectedId && student.archived === (category === 'archived'));
   const points = new Map(data.knowledgePoints.map(point => [point.id, point]));
   const rows: KnowledgeRow[] = data.studentKnowledge.flatMap(current => {
     const point = points.get(current.knowledge_point_id);
@@ -118,14 +119,15 @@ export function StudentsView({ data, selectedId, selectStudent, addStudent, edit
       <Col xs={24} lg={7} xl={6}><Card title="学生列表" size="small" extra={<Text type="secondary">{students.length} 位</Text>}>
         <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <Input prefix={<SearchOutlined />} aria-label="搜索学生" placeholder="搜索姓名或年级" allowClear value={search} onChange={event => setSearch(event.target.value)} />
-          <Checkbox checked={showArchived} onChange={event => setShowArchived(event.target.checked)}>包含已归档学生</Checkbox>
+          <Select<'active' | 'archived'> aria-label="学生分类" value={category} onChange={changeCategory} disabled={busy}
+            options={[{ value: 'active', label: '在读学生' }, { value: 'archived', label: '已归档学生' }]} style={{ width: '100%' }} />
           <Space orientation="vertical" size={4} className="student-picker-list" style={{ width: '100%' }}>{students.map(student => <Button block key={student.id} className="student-list-row"
             type={selected?.id === student.id ? 'primary' : 'text'} onClick={() => selectStudent(student.id)} style={{ height: 'auto', padding: 12, textAlign: 'left', justifyContent: 'flex-start' }}>
             <Avatar size={32} className="accent-avatar" style={{ flexShrink: 0 }}>{student.name.slice(0, 1)}</Avatar>
             <Space orientation="vertical" size={0} style={{ minWidth: 0, alignItems: 'flex-start' }}><Text strong style={{ color: 'inherit' }}>{student.name}</Text>
               <Text style={{ color: 'inherit', fontSize: 12, opacity: 0.75 }}>{student.grade || '年级未填写'}{student.archived ? ' · 已归档' : ''}</Text>
             </Space>
-          </Button>)}{students.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无匹配学生" />}</Space>
+          </Button>)}{students.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={search.trim() ? `没有匹配的${categoryLabel}` : `暂无${categoryLabel}`} />}</Space>
         </Space>
       </Card></Col>
       <Col xs={24} lg={17} xl={18}>{selected ? <div className="page-stack">
@@ -150,7 +152,9 @@ export function StudentsView({ data, selectedId, selectStudent, addStudent, edit
           <Table<KnowledgeRow> key={`${selected.id}:${status ?? 'all'}`} rowKey="id" columns={columns} dataSource={rows} size="small" pagination={pagination} scroll={{ x: 720 }}
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={status ? '没有这个状态的知识点' : '从共用目录关联知识点，开始记录掌握情况。'} /> }} />
         </Card>
-      </div> : <Card><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="选择或添加一位学生，查看档案与掌握情况。"><Button type="primary" disabled={busy} onClick={addStudent}>添加学生</Button></Empty></Card>}</Col>
+      </div> : <Card><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={category === 'active' ? '添加在读学生，开始记录档案与掌握情况。' : '暂无已归档学生。'}>
+        {category === 'active' && <Button type="primary" disabled={busy} onClick={addStudent}>添加学生</Button>}
+      </Empty></Card>}</Col>
     </Row>
   </div>;
 }
