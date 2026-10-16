@@ -47,7 +47,10 @@ export function useWorkspace() {
     let timer: ReturnType<typeof setTimeout>;
     const channel = db.channel(`workspace-${session.user.id}`);
     for (const table of ['students', 'knowledge_points', 'student_knowledge', 'lessons', 'monthly_reports']) {
-      channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `owner_id=eq.${session.user.id}` }, () => { clearTimeout(timer); timer = setTimeout(() => { void refresh().catch(() => {}); }, 180); });
+      // Postgres DELETE events cannot be row-filtered. Notifications only trigger
+      // a fresh read, which still verifies every row through owner RLS policies.
+      const filter = table === 'lessons' ? {} : { filter: `owner_id=eq.${session.user.id}` };
+      channel.on('postgres_changes', { event: '*', schema: 'public', table, ...filter }, () => { clearTimeout(timer); timer = setTimeout(() => { void refresh().catch(() => {}); }, 180); });
     }
     channel.subscribe(status => { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') { setSync('offline'); setError('实时同步暂时中断，请刷新以获取最新记录。'); } else if (status === 'SUBSCRIBED') { void refresh().catch(() => {}); } });
     const onOnline = () => { void refresh().catch(() => {}); };

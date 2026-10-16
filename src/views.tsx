@@ -2,11 +2,11 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Dayjs } from 'dayjs';
 import {
-  AimOutlined, ArrowRightOutlined, CalendarOutlined, EditOutlined, FileTextOutlined,
+  AimOutlined, ArrowRightOutlined, CalendarOutlined, DeleteOutlined, EditOutlined, FileTextOutlined,
   PlusOutlined, SearchOutlined, TeamOutlined, ThunderboltOutlined,
 } from '@ant-design/icons';
 import {
-  Avatar, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Flex, Input,
+  Avatar, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Flex, Grid, Input,
   Pagination, Progress, Row, Select, Space, Statistic, Table, Tag, Typography,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -75,7 +75,7 @@ export function Dashboard({ data, openStudent, addStudent, addLesson, openLesson
       {active.length > 0 ? <Row gutter={[16, 16]}>{active.slice(0, 6).map(student => {
         const count = masteryCounts(data, student.id);
         return <Col xs={24} md={12} xl={8} key={student.id}><Card size="small">
-          <Card.Meta avatar={<Avatar style={{ background: '#e6f4ff', color: '#1677ff' }}>{student.name.slice(0, 1)}</Avatar>} title={student.name} description={`${student.grade || '年级未填写'} · 数学`} />
+          <Card.Meta avatar={<Avatar className="accent-avatar">{student.name.slice(0, 1)}</Avatar>} title={student.name} description={`${student.grade || '年级未填写'} · 数学`} />
           <Flex wrap gap={8} justify="space-between" align="center" style={{ marginTop: 16 }}><Space size={4} wrap>
             <Tag>{data.lessons.filter(lesson => lesson.student_id === student.id).length} 次课堂</Tag>{count.weak > 0 && <Tag color="error">{count.weak} 项薄弱</Tag>}
           </Space><Button type="link" size="small" onClick={() => openStudent(student.id)}>查看档案<ArrowRightOutlined /></Button></Flex>
@@ -83,7 +83,7 @@ export function Dashboard({ data, openStudent, addStudent, addLesson, openLesson
       })}</Row> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="添加学生档案，开始记录课堂与知识掌握情况。"><Button type="primary" onClick={addStudent}>添加学生</Button></Empty>}
     </Card>
     {active.length > 0 && <Card size="small"><Flex gap={16} wrap justify="space-between" align="center">
-      <Space><FileTextOutlined style={{ fontSize: 20, color: '#1677ff' }} /><Text>汇总课堂观察、知识掌握与后续计划，生成学习力报告。</Text></Space>
+      <Space><FileTextOutlined style={{ fontSize: 20, color: 'var(--workbench-accent)' }} /><Text>汇总课堂观察、知识掌握与后续计划，生成学习力报告。</Text></Space>
       <Button onClick={newReport} icon={<PlusOutlined />}>生成月报</Button>
     </Flex></Card>}
   </div>;
@@ -121,7 +121,7 @@ export function StudentsView({ data, selectedId, selectStudent, addStudent, edit
           <Checkbox checked={showArchived} onChange={event => setShowArchived(event.target.checked)}>包含已归档学生</Checkbox>
           <Space orientation="vertical" size={4} className="student-picker-list" style={{ width: '100%' }}>{students.map(student => <Button block key={student.id} className="student-list-row"
             type={selected?.id === student.id ? 'primary' : 'text'} onClick={() => selectStudent(student.id)} style={{ height: 'auto', padding: 12, textAlign: 'left', justifyContent: 'flex-start' }}>
-            <Avatar size={32} style={{ background: '#e6f4ff', color: '#1677ff', flexShrink: 0 }}>{student.name.slice(0, 1)}</Avatar>
+            <Avatar size={32} className="accent-avatar" style={{ flexShrink: 0 }}>{student.name.slice(0, 1)}</Avatar>
             <Space orientation="vertical" size={0} style={{ minWidth: 0, alignItems: 'flex-start' }}><Text strong style={{ color: 'inherit' }}>{student.name}</Text>
               <Text style={{ color: 'inherit', fontSize: 12, opacity: 0.75 }}>{student.grade || '年级未填写'}{student.archived ? ' · 已归档' : ''}</Text>
             </Space>
@@ -130,7 +130,7 @@ export function StudentsView({ data, selectedId, selectStudent, addStudent, edit
       </Card></Col>
       <Col xs={24} lg={17} xl={18}>{selected ? <div className="page-stack">
         <Card className="student-profile" extra={<Button icon={<EditOutlined />} disabled={busy} onClick={() => editStudent(selected)}>编辑档案</Button>}
-          title={<Space><Avatar style={{ background: '#e6f4ff', color: '#1677ff' }}>{selected.name.slice(0, 1)}</Avatar><Text strong>{selected.name}</Text><Tag color={selected.archived ? 'default' : 'blue'}>{selected.archived ? '已归档' : '在读'}</Tag></Space>}>
+          title={<Space><Avatar className="accent-avatar">{selected.name.slice(0, 1)}</Avatar><Text strong>{selected.name}</Text><Tag className={selected.archived ? undefined : 'accent-tag'}>{selected.archived ? '已归档' : '在读'}</Tag></Space>}>
           <Descriptions size="small" column={1} items={[
             { key: 'grade', label: '年级学科', children: `${selected.grade || '年级未填写'} · 数学` },
             { key: 'start', label: '开始日期', children: selected.start_date ? displayDate(selected.start_date) : '尚未填写' },
@@ -155,7 +155,11 @@ export function StudentsView({ data, selectedId, selectStudent, addStudent, edit
   </div>;
 }
 
-export function LessonsView({ data, add, open, edit }: { data: AppData; add: () => void; open: (lesson: Lesson) => void; edit: (lesson: Lesson) => void }) {
+export function LessonsView({ data, add, open, edit, remove, busy }: {
+  data: AppData; add: () => void; open: (lesson: Lesson) => void; edit: (lesson: Lesson) => void;
+  remove: (lesson: Lesson) => void; busy: boolean;
+}) {
+  const screens = Grid.useBreakpoint();
   const [student, setStudent] = useState<string>();
   const [month, setMonth] = useState<Dayjs | null>(null);
   const [search, setSearch] = useState('');
@@ -169,18 +173,22 @@ export function LessonsView({ data, add, open, edit }: { data: AppData; add: () 
     { title: '课堂内容', dataIndex: 'content', width: 260, render: value => <Paragraph ellipsis={{ rows: 3, tooltip: value }} style={{ margin: 0 }}>{value}</Paragraph> },
     { title: '课堂问题', dataIndex: 'problems', width: 220, render: value => <Paragraph ellipsis={{ rows: 3, tooltip: value }} style={{ margin: 0 }}>{value || '—'}</Paragraph> },
     { title: '课后反馈', width: 112, render: (_, lesson) => <Tag color={lesson.feedback ? 'success' : 'default'}>{lesson.feedback ? '已有反馈' : '待整理'}</Tag> },
-    { title: '操作', width: 190, render: (_, lesson) => <Space size={0}><Button type="link" size="small" icon={<EditOutlined />} onClick={() => edit(lesson)}>编辑</Button><Button type="link" size="small" onClick={() => open(lesson)}>查看 / 整理反馈</Button></Space> },
+    { title: '操作', width: screens.md ? 260 : 150, fixed: 'right', render: (_, lesson) => <Space orientation={screens.md ? 'horizontal' : 'vertical'} size={0}>
+      <Button type="link" size="small" icon={<EditOutlined />} disabled={busy} onClick={() => edit(lesson)}>编辑</Button>
+      <Button type="link" size="small" disabled={busy} onClick={() => open(lesson)}>查看 / 整理反馈</Button>
+      <Button type="link" danger size="small" icon={<DeleteOutlined />} disabled={busy} onClick={() => remove(lesson)}>删除</Button>
+    </Space> },
   ];
   return <div className="page-stack">
-    <ViewHeading title="课堂记录" description="记录课堂事实，再整理为清楚的课后反馈。" action={<Button type="primary" icon={<PlusOutlined />} disabled={!canAdd} onClick={add}>记录课堂</Button>} />
+    <ViewHeading title="课堂记录" description="记录课堂事实，再整理为清楚的课后反馈。" action={<Button type="primary" icon={<PlusOutlined />} disabled={!canAdd || busy} onClick={add}>记录课堂</Button>} />
     <Card><div className="filter-bar">
       <Select aria-label="按学生筛选课堂" placeholder="全部学生" showSearch optionFilterProp="label" allowClear value={student} onChange={setStudent} options={studentOptions(data.students)} style={{ width: 180 }} />
       <DatePicker picker="month" aria-label="按月份筛选课堂" placeholder="全部月份" value={month} onChange={setMonth} style={{ width: 160 }} />
       <Input prefix={<SearchOutlined />} aria-label="搜索课堂内容" placeholder="搜索内容或问题" value={search} allowClear onChange={event => setSearch(event.target.value)} style={{ width: 260, maxWidth: '100%' }} />
       {filtered && <Button type="link" onClick={() => { setStudent(undefined); setMonth(null); setSearch(''); }}>清除筛选</Button>}
     </div>
-      <Table<Lesson> key={`${student ?? ''}:${monthString ?? ''}:${search}`} rowKey="id" columns={columns} dataSource={rows} size="small" pagination={pagination} scroll={{ x: 1020 }}
-        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? '没有匹配的课堂记录，请调整筛选条件。' : '还没有课堂记录。'}>{!filtered && <Button type="primary" disabled={!canAdd} onClick={add}>记录课堂</Button>}</Empty> }} />
+      <Table<Lesson> key={`${student ?? ''}:${monthString ?? ''}:${search}`} rowKey="id" columns={columns} dataSource={rows} size="small" pagination={pagination} scroll={{ x: 1090 }}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? '没有匹配的课堂记录，请调整筛选条件。' : '还没有课堂记录。'}>{!filtered && <Button type="primary" disabled={!canAdd || busy} onClick={add}>记录课堂</Button>}</Empty> }} />
     </Card>
   </div>;
 }
@@ -225,7 +233,7 @@ export function ReportsView({ data, add, open }: { data: AppData; add: () => voi
     </div>
       {rows.length > 0 ? <Space orientation="vertical" size={20} style={{ width: '100%' }}>
         <Row gutter={[16, 16]}>{pageRows.map(report => <Col xs={24} md={12} xl={8} key={report.id}>
-          <Card className="report-card" size="small" style={{ height: '100%' }} title={<Space><FileTextOutlined style={{ color: '#1677ff' }} /><Text strong>{report.snapshot.student.name}</Text></Space>} extra={<Tag color="blue">已归档</Tag>}>
+          <Card className="report-card" size="small" style={{ height: '100%' }} title={<Space><FileTextOutlined style={{ color: 'var(--workbench-accent)' }} /><Text strong>{report.snapshot.student.name}</Text></Space>} extra={<Tag className="accent-tag">已归档</Tag>}>
             <Space orientation="vertical" size={12} style={{ width: '100%' }}><Text strong>{report.title}</Text>
               <Space orientation="vertical" size={4}><Text type="secondary">{displayDate(report.period_start)} — {displayDate(report.period_end)}</Text><Text>{report.snapshot.lessons.length} 次课堂记录</Text><Text type="secondary">生成于 {displayDate(report.created_at)}</Text></Space>
               <Button block onClick={() => open(report)}>查看与导出<ArrowRightOutlined /></Button>

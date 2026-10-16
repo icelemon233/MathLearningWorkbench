@@ -5,14 +5,15 @@ import {
 } from 'antd';
 import {
   ApartmentOutlined, BulbOutlined, CalculatorOutlined, CalendarOutlined, CopyOutlined, DashboardOutlined,
-  DownloadOutlined, FileTextOutlined, LockOutlined, LoginOutlined, LogoutOutlined, MenuOutlined,
+  DeleteOutlined, DownloadOutlined, FileTextOutlined, LockOutlined, LoginOutlined, LogoutOutlined, MenuOutlined,
   PrinterOutlined, ReadOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined, UserOutlined,
 } from '@ant-design/icons';
-import { assignPoints, db, invokeAI, saveFeedback, saveKnowledgePoint, saveLesson, saveMastery, saveMonthlyReport, saveStudent } from './api';
+import { assignPoints, db, deleteLesson, invokeAI, saveFeedback, saveKnowledgePoint, saveLesson, saveMastery, saveMonthlyReport, saveStudent } from './api';
 import { Dialog } from './components';
 import { displayDate, errorMessage, today } from './lib';
 import { exportReportDocx, printReport } from './export-report';
 import { useWorkspace } from './use-workspace';
+import { ThemeButton } from './theme';
 import type { KnowledgePoint, Lesson, MonthlyReport, Student, StudentKnowledge } from './types';
 
 const { Header, Sider, Content, Footer } = Layout;
@@ -29,7 +30,7 @@ const ReportForm = lazy(() => import('./forms').then(module => ({ default: modul
 const StudentForm = lazy(() => import('./forms').then(module => ({ default: module.StudentForm })));
 type View = 'dashboard' | 'students' | 'lessons' | 'knowledge' | 'reports';
 type Modal = { type: 'student'; student?: Student } | { type: 'knowledge'; point?: KnowledgePoint }
-  | { type: 'lesson'; lesson?: Lesson } | { type: 'mastery'; current?: StudentKnowledge }
+  | { type: 'lesson'; lesson?: Lesson } | { type: 'lesson-delete'; lesson: Lesson } | { type: 'mastery'; current?: StudentKnowledge }
   | { type: 'feedback'; lesson: Lesson } | { type: 'report' } | { type: 'report-view'; report: MonthlyReport }
   | { type: 'insights'; name: string; content: string; suggestions: string[] };
 type Run = (action: () => Promise<unknown>, message?: string, refresh?: boolean) => Promise<boolean>;
@@ -100,6 +101,7 @@ export default function App() {
   const modalTitle = modal?.type === 'student' ? modal.student ? '编辑学生档案' : '添加学生'
     : modal?.type === 'knowledge' ? modal.point ? '编辑知识点' : '添加知识点'
       : modal?.type === 'lesson' ? modal.lesson ? '编辑课堂记录' : '记录一节课'
+        : modal?.type === 'lesson-delete' ? '删除课堂记录'
         : modal?.type === 'mastery' ? '记录掌握情况' : modal?.type === 'feedback' ? '课后反馈'
           : modal?.type === 'report' ? '生成学习力报告' : modal?.type === 'insights' ? modal.name + '的学情建议' : '学习力报告';
 
@@ -129,7 +131,7 @@ export default function App() {
             </Button>
           </Tooltip>
           <Text type="secondary" className="header-date"><CalendarOutlined /> {displayDate(today())}</Text>
-          <Avatar size="small" icon={<UserOutlined />} style={{ background: '#e6f4ff', color: '#1677ff' }} />
+          <ThemeButton />
         </Space>
       </Header>
       <Content className="app-content">
@@ -146,7 +148,9 @@ export default function App() {
             open({ type: 'insights', name: currentStudent.name, content: result.insights ?? '', suggestions: result.suggestions ?? [] });
           }, 'AI 建议已生成', false); }}
           archive={student => { void run(() => saveStudent({ id: student.id, archived: !student.archived }), student.archived ? '已恢复学生' : '已归档，历史记录保留'); }} />}
-        {view === 'lessons' && <LessonsView data={data} add={addLesson} open={openFeedback} edit={lesson => { setSelectedId(lesson.student_id); open({ type: 'lesson', lesson }); }} />}
+        {view === 'lessons' && <LessonsView data={data} add={addLesson} open={openFeedback} busy={busy}
+          remove={lesson => open({ type: 'lesson-delete', lesson })}
+          edit={lesson => { setSelectedId(lesson.student_id); open({ type: 'lesson', lesson }); }} />}
         {view === 'knowledge' && <KnowledgeView data={data} add={() => open({ type: 'knowledge' })} edit={point => open({ type: 'knowledge', point })}
           archive={point => { void run(() => saveKnowledgePoint({ id: point.id, archived: !point.archived }), point.archived ? '已恢复知识点' : '知识点已归档，原记录保留'); }} />}
         {view === 'reports' && <ReportsView data={data} add={newReport} open={report => open({ type: 'report-view', report })} />}
@@ -167,6 +171,21 @@ export default function App() {
       {modal.type === 'lesson' && <LessonForm data={data} studentId={currentStudent?.id} lesson={modal.lesson} busy={busy} save={(value, versions) => {
         void run(async () => { const saved = await saveLesson(value, versions); setSelectedId(saved.student_id); setView('lessons'); }).then(ok => { if (ok) close(); });
       }} />}
+      {modal.type === 'lesson-delete' && <div className="page-stack">
+        <Alert type="warning" showIcon title="删除后无法恢复" description="本节课的课堂记录和已保存的课后反馈将一并删除。" />
+        <Descriptions size="small" column={1} items={[
+          { key: 'student', label: '学生', children: data.students.find(student => student.id === modal.lesson.student_id)?.name ?? '学生记录' },
+          { key: 'date', label: '课堂日期', children: displayDate(modal.lesson.lesson_date) },
+          { key: 'content', label: '课堂内容', children: <Paragraph ellipsis={{ rows: 3, tooltip: modal.lesson.content }} style={{ margin: 0 }}>{modal.lesson.content}</Paragraph> },
+        ]} />
+        <Text type="secondary">学生当前掌握情况保持不变；已生成月报仍保留原内容。删除后的新月报不再统计这节课。</Text>
+        <div className="form-footer">
+          <Button disabled={busy} onClick={close}>取消</Button>
+          <Button type="primary" danger icon={<DeleteOutlined />} loading={busy} onClick={() => {
+            void run(() => deleteLesson(modal.lesson), '课堂记录已删除').then(ok => { if (ok) close(); });
+          }}>确认删除</Button>
+        </div>
+      </div>}
       {modal.type === 'feedback' && <FeedbackEditor lesson={data.lessons.find(lesson => lesson.id === modal.lesson.id) ?? modal.lesson}
         studentName={data.students.find(student => student.id === modal.lesson.student_id)?.name ?? ''} busy={busy} run={run} />}
       {modal.type === 'report' && <ReportForm data={data} studentId={currentStudent?.id} busy={busy} error={modalError}
@@ -206,16 +225,16 @@ function FeedbackEditor({ lesson, studentName, busy, run }: { lesson: Lesson; st
       ]} />
     </Card>
     <div className="feedback-toolbar">
-      <Text type="secondary">生成后可编辑，再保存或复制</Text>
+      <Text type="secondary">润色草稿，或根据课堂记录整理，核对后再保存或复制</Text>
       <Button icon={<BulbOutlined />} loading={busy} onClick={() => { void run(async () => {
-        const result = await invokeAI({ action: 'lesson_feedback', lesson_id: lesson.id });
+        const result = await invokeAI({ action: 'lesson_feedback', lesson_id: lesson.id, draft: feedback.trim() });
         if (!result.feedback) throw new Error('没有收到反馈内容');
         setFeedback(result.feedback); setBaseline(lesson);
-      }, '反馈草稿已生成，请核对后保存', false); }}>AI 生成反馈</Button>
+      }, '反馈已润色，请核对后保存', false); }}>AI 润色</Button>
     </div>
     <Form layout="vertical"><Form.Item label="课后反馈" style={{ marginBottom: 0 }}>
       <Input.TextArea aria-label="课后反馈" value={feedback} onChange={event => setFeedback(event.target.value)}
-        rows={14} maxLength={12000} disabled={busy} placeholder="填写反馈，或根据课堂记录生成 AI 草稿" />
+        rows={14} maxLength={12000} disabled={busy} placeholder="直接写反馈后点击 AI 润色；留空时，AI 会根据课堂记录整理。" />
     </Form.Item></Form>
     <div className="form-footer">
       <Button icon={<CopyOutlined />} disabled={!feedback.trim() || busy} onClick={() => { void run(() => navigator.clipboard.writeText(feedback), '反馈已复制', false); }}>复制文字</Button>
@@ -230,7 +249,7 @@ function ReportPreview({ report, busy, run }: { report: MonthlyReport; busy: boo
   return <div className="page-stack">
     <Card className="report-preview">
       <Space orientation="vertical" size={8} className="full-width">
-        <Tag color="blue">数学 · 月度学习总结</Tag>
+        <Tag className="accent-tag">数学 · 月度学习总结</Tag>
         <Title level={2}>{report.title}</Title>
         <Descriptions size="small" column={2} items={[
           { key: 'name', label: '学生', children: report.snapshot.student.name },
@@ -265,10 +284,11 @@ function Login({ sessionExists, error, signOut }: { sessionExists: boolean; erro
     finally { setBusy(false); }
   };
   return <Layout className="login-page">
+    <div className="login-theme"><ThemeButton /></div>
     <div className="login-brand"><CalculatorOutlined /><Text strong>数学教学手记</Text></div>
     <Card className="login-card">
       <Space orientation="vertical" size={8} className="full-width login-heading">
-        <Avatar size={52} icon={<LockOutlined />} style={{ background: '#e6f4ff', color: '#1677ff' }} />
+        <Avatar size={52} icon={<LockOutlined />} className="accent-avatar" />
         <Title level={3}>{sessionExists ? error ? '无法进入工作台' : '正在验证访问权限' : '登录工作台'}</Title>
         <Text type="secondary">{sessionExists ? '仅已获授权的账户可以访问教学记录。' : '记录课堂，梳理掌握情况，整理学习报告。'}</Text>
       </Space>

@@ -30,6 +30,9 @@ async function saveReport(content, hash = null, start = '2026-10-01', end = '202
   return (await one('select to_jsonb(public.save_monthly_report($1::uuid,$2::date,$3::date,$4::jsonb,null,$5::text)) as row',
     [student, start, end, JSON.stringify(content), hash])).row;
 }
+async function deleteLesson(id, expected) {
+  return (await one('select public.delete_lesson($1::uuid,$2::timestamptz) as id', [id, expected])).id;
+}
 const reportContent = { state: '有课堂观察记录。', level: '依据知识记录整理。', guidance: '复习记录中的薄弱环节。', supplement: '', plan: '下一阶段继续巩固。' };
 try {
   await db.exec(`
@@ -45,6 +48,9 @@ try {
     grant execute on function auth.uid() to authenticated, anon, service_role;
   `);
   await db.exec(await fs.readFile(new URL('../schema.sql', import.meta.url), 'utf8'));
+  const deletionUpgrade = await fs.readFile(new URL('../lesson-deletion.sql', import.meta.url), 'utf8');
+  await db.exec(deletionUpgrade);
+  await db.exec(deletionUpgrade); // The reviewed upgrade is safe to reapply.
   await db.query('insert into auth.users(id) values ($1::uuid),($2::uuid)', [owner, other]);
   await db.query('insert into public.app_owner(singleton,owner_id) values(true,$1::uuid)', [owner]);
   check((await one("select count(*)::int as n from pg_class where relnamespace='public'::regnamespace and relkind='r' and relrowsecurity")).n === 6, 'all public tables have RLS');
@@ -52,12 +58,15 @@ try {
   await role('anon');
   await rejectsCode(() => db.query('select * from public.students'), '42501');
   await rejectsCode(() => db.query('select public.consume_ai_quota()'), '42501');
+  await rejectsCode(() => deleteLesson(lesson1, '2026-10-01T00:00:00Z'), '42501');
+  await rejectsCode(() => db.query('delete from public.lessons'), '42501');
   await role('authenticated', other);
   check((await one('select public.is_app_owner() as ok')).ok === false, 'nonowner is not whitelisted');
   check((await one('select count(*)::int as n from public.students')).n === 0, 'nonowner reads zero data');
   await rejectsCode(() => db.query("insert into public.students(name,grade) values('测试','初中')"), '42501');
   await rejectsCode(() => db.query('insert into public.app_owner(singleton,owner_id) values(true,$1::uuid)', [other]), '42501');
   await rejectsCode(() => saveLesson({ student_id: student, lesson_date: '2026-10-01', content: '记录' }), '42501', 'owner_required');
+  await rejectsCode(() => deleteLesson(lesson1, '2026-10-01T00:00:00Z'), '42501', 'owner_required');
 
   await role('authenticated', owner);
   await db.query("insert into public.students(id,name,grade) values($1::uuid,'测试学生','初中')", [student]);
@@ -110,6 +119,65 @@ try {
   await db.query('insert into public.monthly_reports(student_id,period_start,period_end,title,content,snapshot) values($1::uuid,$2::date,$3::date,$4,$5::jsonb,$6::jsonb)',
     [student, '2026-10-01', '2026-10-02', '周期报告', JSON.stringify(reportContent), JSON.stringify({ forged: true })]);
   check(!(await one("select snapshot from public.monthly_reports where period_end='2026-10-02'")).snapshot.forged, 'direct report inserts cannot forge snapshots');
+
+  const secondPoint = '30000000-0000-4000-8000-000000000002';
+  const manualPoint = '30000000-0000-4000-8000-000000000003';
+  await db.query("insert into public.knowledge_points(id,grade,chapter,title) values($1::uuid,'初中','测试章节','另一知识点'),($2::uuid,'初中','测试章节','手动知识点')", [secondPoint, manualPoint]);
+  await db.query("update public.student_knowledge set last_lesson_id=$1::uuid where knowledge_point_id=$2::uuid", [lesson1, point]);
+  await db.query("insert into public.student_knowledge(student_id,knowledge_point_id,status,note,last_lesson_id) values($1::uuid,$2::uuid,'basic','较新课堂依据',$3::uuid),($1::uuid,$4::uuid,'weak','独立判断',null)", [student, secondPoint, lesson2, manualPoint]);
+  const beforeDeletion = await one('select * from public.lessons where id=$1::uuid', [lesson1]);
+  await db.query("update public.lessons set feedback='已保存课堂反馈' where id=$1::uuid", [lesson1]);
+  const latest = await one('select * from public.lessons where id=$1::uuid', [lesson1]);
+  const masteryBeforeDeletion = await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [point]);
+  const newerMasteryBeforeDeletion = await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [secondPoint]);
+  const manualBeforeDeletion = await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [manualPoint]);
+  const reportsBeforeDeletion = (await db.query('select * from public.monthly_reports order by id')).rows;
+  const contextBeforeDeletion = (await one('select public.monthly_report_context($1::uuid,$2::date,$3::date) as value', [student, '2026-10-01', '2026-10-04'])).value;
+  await rejectsCode(() => deleteLesson(lesson1, null), '22023', 'invalid_lesson_delete');
+  await rejectsCode(() => deleteLesson(lesson1, beforeDeletion.updated_at), '40001', 'lesson_delete_conflict');
+  check((await one('select feedback from public.lessons where id=$1::uuid', [lesson1])).feedback === '已保存课堂反馈', 'stale delete preserves lesson and feedback');
+  assert.deepEqual(await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [point]), masteryBeforeDeletion);
+  assertions++;
+  await role('authenticated', other);
+  check((await db.query('delete from public.lessons where id=$1::uuid returning id', [lesson1])).rows.length === 0, 'nonowner direct deletion sees no rows');
+  await rejectsCode(() => deleteLesson(lesson1, latest.updated_at), '42501', 'owner_required');
+  await role('authenticated', owner);
+  // Cross-owner references remain inaccessible even if the whitelist owner knows the ID.
+  const foreignStudent = '20000000-0000-4000-8000-000000000002';
+  const foreignLesson = '40000000-0000-4000-8000-000000000004';
+  await db.exec('reset role');
+  await db.query("insert into public.students(id,owner_id,name,grade) values($1::uuid,$2::uuid,'隔离测试','初中')", [foreignStudent, other]);
+  await db.query("insert into public.lessons(id,owner_id,student_id,lesson_date,content) values($1::uuid,$2::uuid,$3::uuid,'2026-10-01','隔离课堂')", [foreignLesson, other, foreignStudent]);
+  await role('authenticated', owner);
+  await rejectsCode(() => deleteLesson(foreignLesson, latest.updated_at), 'P0002', 'lesson_missing');
+  await db.exec('reset role; create function private.reject_delete_for_test() returns trigger language plpgsql as $$ begin raise exception using errcode=\'P0001\',message=\'test_delete_failure\'; end; $$; create trigger reject_delete_for_test before delete on public.lessons for each row execute function private.reject_delete_for_test();');
+  await role('authenticated', owner);
+  await rejectsCode(() => deleteLesson(lesson1, latest.updated_at), 'P0001', 'test_delete_failure');
+  assert.deepEqual(await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [point]), masteryBeforeDeletion);
+  assertions++;
+  check((await one('select feedback from public.lessons where id=$1::uuid', [lesson1])).feedback === '已保存课堂反馈', 'failed deletion rolls back both detachment and lesson deletion');
+  await db.exec('reset role; drop trigger reject_delete_for_test on public.lessons; drop function private.reject_delete_for_test();');
+  await role('authenticated', owner);
+  check(await deleteLesson(lesson1, latest.updated_at) === lesson1, 'owner deletes the confirmed lesson');
+  check((await one('select count(*)::int as n from public.lessons where id=$1::uuid', [lesson1])).n === 0, 'deleted lesson and its feedback are removed');
+  const masteryAfterDeletion = await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [point]);
+  check(masteryAfterDeletion.last_lesson_id === null && masteryAfterDeletion.status === masteryBeforeDeletion.status && masteryAfterDeletion.note === masteryBeforeDeletion.note, 'deletion detaches evidence while retaining current mastery and note');
+  check(masteryAfterDeletion.updated_at.getTime() > masteryBeforeDeletion.updated_at.getTime(), 'detaching the source advances the mastery version');
+  assert.deepEqual(await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [secondPoint]), newerMasteryBeforeDeletion);
+  assertions++;
+  assert.deepEqual(await one('select * from public.student_knowledge where knowledge_point_id=$1::uuid', [manualPoint]), manualBeforeDeletion);
+  assertions++;
+  assert.deepEqual((await db.query('select * from public.monthly_reports order by id')).rows, reportsBeforeDeletion);
+  assertions++;
+  await rejectsCode(() => saveReport(reportContent, contextBeforeDeletion.snapshot_hash, '2026-10-01', '2026-10-04'), '40001', 'report_source_changed');
+  const newReport = await saveReport(reportContent, null, '2026-10-01', '2026-10-04');
+  check(newReport.snapshot.lessons.length === 1 && newReport.snapshot.lessons[0].id === lesson2, 'new reports exclude the deleted lesson');
+  await rejectsCode(() => deleteLesson(lesson1, latest.updated_at), 'P0002', 'lesson_missing');
+  await rejectsCode(() => saveLesson({ ...latest, content: '不能复活课堂', knowledge_updates: [] }, latest.updated_at), '40001', 'lesson_conflict');
+  check((await one('select count(*)::int as n from public.lessons where id=$1::uuid', [lesson1])).n === 0, 'stale edit cannot recreate the deleted lesson');
+  await db.query('update public.students set archived=true where id=$1::uuid', [student]);
+  check(await deleteLesson(lesson2, second.updated_at) === lesson2, 'lessons of archived students can be deleted');
+  check((await one('select last_lesson_id from public.student_knowledge where knowledge_point_id=$1::uuid', [secondPoint])).last_lesson_id === null, 'archived student deletion detaches the source');
 
   for (let i = 0; i < 12; i++) check((await one('select public.consume_ai_quota() as allowed')).allowed === true, 'quota permits initial requests');
   check((await one('select public.consume_ai_quota() as allowed')).allowed === false, 'persistent quota rejects the thirteenth request');

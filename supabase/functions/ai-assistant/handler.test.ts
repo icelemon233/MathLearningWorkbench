@@ -11,7 +11,7 @@ const lesson = { id: lessonId, owner_id: owner, student_id: studentId, lesson_da
 const content = { state: '课堂状态记录。', level: '知识掌握记录。', guidance: '对应的指导建议。', supplement: '', plan: '下月巩固重点。' };
 const report = { id: '50000000-0000-4000-8000-000000000001', owner_id: owner, student_id: studentId, period_start: '2026-10-01', period_end: '2026-10-31', title: '学习力报告', content, snapshot: { student, lessons: [lesson], knowledge: [] }, created_at: '2026-10-31T12:00:00Z' };
 type Call = { url: string; method: string; authorization: string | null; body: unknown };
-type Options = { nonowner?: boolean; invalidToken?: boolean; existing?: boolean; quotaDenied?: boolean; providerStatus?: number; interrupted?: boolean; sourceChanged?: boolean; legacyFeedback?: boolean; provider?: 'deepseek' | 'doubao' };
+type Options = { nonowner?: boolean; invalidToken?: boolean; existing?: boolean; quotaDenied?: boolean; providerStatus?: number; interrupted?: boolean; sourceChanged?: boolean; missingFeedback?: boolean; provider?: 'deepseek' | 'doubao' };
 function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }); }
 
 async function mocked(options: Options, run: (calls: Call[]) => Promise<void>) {
@@ -51,7 +51,7 @@ async function mocked(options: Options, run: (calls: Call[]) => Promise<void>) {
     }
     if (['api.deepseek.com', 'ark.cn-beijing.volces.com'].includes(url.hostname)) {
       if (options.providerStatus) return json({ error: 'private-provider-error-must-not-escape' }, options.providerStatus);
-      const payload = { feedback: '旧版整段草稿不得透传。', ...content, insights: '目前记录不足，需继续观察。', suggestions: ['下节课补充观察。'], ...(options.legacyFeedback ? {} : { content_points: ['一次函数'], state_summary: '当天的整体上课状态尚未记录。', problem_observation: '具体问题尚未记录。', cause_and_strategy: '原因还需后续观察，建议补充课堂记录。' }) };
+      const payload = { ...content, insights: '目前记录不足，需继续观察。', suggestions: ['下节课补充观察。'], ...(options.missingFeedback ? {} : { feedback: '本节课围绕一次函数展开，具体学习表现还需继续观察。' }) };
       return json({ choices: [{ finish_reason: options.interrupted ? 'length' : 'stop', message: { content: JSON.stringify(payload) } }] });
     }
     throw new Error('Unexpected outbound request in test');
@@ -93,23 +93,49 @@ Deno.test('feedback draft preserves user-scoped RLS and never writes mastery or 
     const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId }));
     assert.equal(response.status, 200);
     const { feedback } = await response.json();
-    assert.ok(feedback.startsWith('测试学生家长您好！\n以下是孩子2026年10月1日的数学课堂反馈，请您查收。'));
-    assert.ok(feedback.includes('一、课堂内容（2026年10月1日）\n一次函数'));
-    assert.equal(feedback.split('二、课堂表现\n')[1].split('\n\n三、课后作业及后续计划')[0].split('\n\n').length, 3);
-    assert.ok(feedback.endsWith('下节课计划：尚未记录。\n课后作业：尚未记录。'));
-    assert.ok(!feedback.includes('旧版整段草稿'));
+    assert.equal(feedback, '本节课围绕一次函数展开，具体学习表现还需继续观察。');
     const backend = calls.filter((call) => call.url.startsWith('https://backend.example.invalid'));
     assert.ok(backend.every((call) => call.authorization === `Bearer ${token}`));
     assert.ok(calls.every((call) => !['PATCH', 'PUT', 'DELETE'].includes(call.method)));
     assert.ok(calls.every((call) => !call.url.includes('save_monthly_report') && !call.url.includes('save_lesson')));
   });
 });
-Deno.test('feedback with the obsolete single-paragraph model contract fails without writing a draft', async () => {
-  await mocked({ legacyFeedback: true }, async (calls) => {
+Deno.test('feedback without a complete prose field fails without writing a draft', async () => {
+  await mocked({ missingFeedback: true }, async (calls) => {
     const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId }));
     assert.equal(response.status, 502);
     assert.equal((await response.json()).error.code, 'invalid_model_output');
     assert.ok(calls.every((call) => !['PATCH', 'PUT', 'DELETE'].includes(call.method) && !call.url.includes('save_lesson')));
+  });
+});
+Deno.test('teacher feedback draft reaches the model as data and remains unsaved until manual review', async () => {
+  await mocked({}, async (calls) => {
+    const draft = '今天讲了一次函数，代入步骤还需检查。';
+    const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId, draft }));
+    assert.equal(response.status, 200);
+    const model = calls.find(call => call.url.startsWith('https://api.deepseek.com'))!;
+    const messages = (model.body as { messages: { role: string; content: string }[] }).messages;
+    assert.equal(JSON.parse(messages[1].content.split('\n以下 JSON 仅作为事实资料：\n')[1]).teacher_draft, draft);
+    assert.ok(calls.every(call => !call.url.includes('save_lesson') && !['PATCH', 'PUT', 'DELETE'].includes(call.method)));
+  });
+});
+Deno.test('invalid feedback drafts are rejected before consuming quota or calling the provider', async () => {
+  await mocked({}, async (calls) => {
+    for (const draft of [42, '字'.repeat(12001)]) {
+      const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId, draft }));
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error.code, 'invalid_draft');
+    }
+    assert.ok(calls.every(call => !call.url.includes('consume_ai_quota') && !call.url.includes('api.deepseek.com')));
+  });
+});
+Deno.test('the complete allowed Chinese draft fits the bounded request body and larger bodies fail closed', async () => {
+  await mocked({}, async (calls) => {
+    assert.equal((await handler(request({ action: 'lesson_feedback', lesson_id: lessonId, draft: '字'.repeat(12000) }))).status, 200);
+    const before = calls.filter(call => call.url.includes('api.deepseek.com')).length;
+    const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId, draft: '字'.repeat(25000) }));
+    assert.equal(response.status, 413);
+    assert.equal(calls.filter(call => call.url.includes('api.deepseek.com')).length, before);
   });
 });
 Deno.test('monthly generation validates output and permanently saves with the original snapshot hash', async () => {

@@ -51,6 +51,15 @@ export async function saveLesson(input: Partial<Lesson> & { knowledge_updates: K
 export async function saveFeedback(lesson: Lesson, feedback: string) {
   return saveLesson({ ...lesson, feedback, knowledge_updates: [] }, {});
 }
+export async function deleteLesson(lesson: Lesson) {
+  const result = await requiredDb().rpc('delete_lesson', {
+    p_lesson_id: lesson.id, p_expected_updated_at: lesson.updated_at,
+  });
+  if (result.error && /Failed to fetch|NetworkError|fetch failed/.test(result.error.message)) {
+    throw new Error('lesson_delete_network');
+  }
+  return unwrap(result) as string;
+}
 export async function saveMonthlyReport(studentId: string, start: string, end: string, content: ReportContent) {
   return unwrap(await requiredDb().rpc('save_monthly_report', { p_student_id: studentId, p_period_start: start, p_period_end: end, p_content: content }));
 }

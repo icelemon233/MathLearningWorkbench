@@ -6,7 +6,8 @@ import {
   type Action,
 } from './logic.ts';
 
-const MAX_BODY_BYTES = 16384;
+// A 12,000-character Chinese feedback draft requires up to 36 KB before JSON.
+const MAX_BODY_BYTES = 65536;
 const MODEL_TIMEOUT_MS = 55000;
 
 function publishableKey(): string {

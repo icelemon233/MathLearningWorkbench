@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aiErrorMessage, masteryCounts, monthPeriod, validatePeriod } from '../src/lib';
+import { aiErrorMessage, errorMessage, masteryCounts, monthPeriod, validatePeriod } from '../src/lib';
 import { EMPTY_DATA } from '../src/types';
 import type { AppData } from '../src/types';
 
@@ -42,5 +42,13 @@ describe('AI error messages', () => {
     for (const value of [{ code: 'unknown', message: 'AI \uFFFD\uFFFD错误' }, 'AI \uFFFD\uFFFD错误', { code: 'unknown' }, { message: 42 }, null]) {
       expect(aiErrorMessage(value)).toBe('AI 服务暂时不可用，请稍后重试。');
     }
+  });
+});
+
+describe('lesson deletion errors', () => {
+  it('explains a stale confirmation and an already deleted record in Chinese', () => {
+    expect(errorMessage({ message: 'lesson_delete_conflict' })).toBe('这节课已在其他设备更新，本次未删除。请取消、刷新后重新确认。');
+    expect(errorMessage(new Error('lesson_missing'))).toBe('这节课已被删除或无法访问。请取消并刷新列表。');
+    expect(errorMessage({ message: 'lesson_delete_network' })).toBe('删除结果暂时无法确认，请检查网络并刷新列表，核对记录是否仍然存在。');
   });
 });

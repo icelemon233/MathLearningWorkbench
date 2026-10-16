@@ -31,6 +31,9 @@ export function aiErrorMessage(value: unknown): string {
 }
 export const errorMessage = (error: unknown) => {
   const raw = error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : '操作失败，请稍后重试';
+  if (/lesson_delete_network/.test(raw)) return '删除结果暂时无法确认，请检查网络并刷新列表，核对记录是否仍然存在。';
+  if (/lesson_delete_conflict/.test(raw)) return '这节课已在其他设备更新，本次未删除。请取消、刷新后重新确认。';
+  if (/lesson_missing/.test(raw)) return '这节课已被删除或无法访问。请取消并刷新列表。';
   if (/mastery_conflict/.test(raw)) return '这个知识点已在其他记录中更新。请刷新后核对掌握情况，再保存。';
   if (/lesson_conflict/.test(raw)) return '这节课已在其他设备更新。请关闭表单、刷新后重新编辑。';
   if (/Failed to fetch|NetworkError|fetch failed/.test(raw)) return '网络连接中断，请检查网络后重试。内容尚未保存。';
