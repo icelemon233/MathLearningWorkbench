@@ -1,13 +1,14 @@
-name: Deploy static site
+name: Publish compiled site
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-  group: pages
+  group: publish-compiled-site
   cancel-in-progress: false
 
 jobs:
@@ -16,7 +17,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      pages: read
     env:
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
@@ -54,25 +54,35 @@ jobs:
       - name: Check build for credentials
         run: node scripts/validate-config.mjs --check-dist
 
-      - name: Read site configuration
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Check public file boundary
+        run: |
+          pnpm test:publish
+          node scripts/validate-public-build.mjs
 
-      - name: Upload static files
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      # The key can write only to the distribution repository. Load it after
+      # dependency installation, tests and the build have completed.
+      - name: Check out compiled-site repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: dist
+          repository: icelemon233/icelemon233.github.io
+          ref: main
+          path: published-site
+          ssh-key: ${{ secrets.PAGES_DEPLOY_KEY }}
+          persist-credentials: true
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy static site
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Publish compiled files only
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_REVISION" =~ ^[a-f0-9]{40}$ ]]
+          test -d published-site/.git
+          git -C published-site rm -r --ignore-unmatch -- math-learning-workbench >/dev/null
+          mkdir -p published-site/math-learning-workbench
+          cp -a dist/. published-site/math-learning-workbench/
+          printf '{"revision":"%s"}\n' "$SOURCE_REVISION" > published-site/math-learning-workbench/release.json
+          git -C published-site add -- math-learning-workbench
+          if ! git -C published-site diff --cached --quiet; then
+            git -C published-site -c user.name='Workbench Maintainer' -c user.email='maintainer@users.noreply.github.com' commit -m "Publish $SOURCE_REVISION"
+            git -C published-site push origin HEAD:main
+          fi

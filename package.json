@@ -8,6 +8,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "test:publish": "node --test scripts/validate-public-build.check.mjs",
     "test:ai": "node --experimental-transform-types --test supabase/functions/ai-assistant/logic.test.ts supabase/functions/ai-assistant/feedback.test.ts",
     "preview": "vite preview --host 127.0.0.1"
   },

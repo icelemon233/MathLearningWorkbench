@@ -27,3 +27,9 @@ pnpm dev
 ```
 
 Open the local address printed by the server and sign in with the account configured for your deployment.
+
+## Deployment and source privacy
+
+The application source, backend code, and maintenance documents stay in a private repository. Pushing `main` runs configuration checks, tests, and a production build, then copies only validated web files to the public distribution repository. Its Pages workflow publishes the website at the existing address.
+
+Source maps, environment files, and project source directories are blocked before publication. Browser JavaScript remains downloadable; student records and model credentials are not included in the build. See the [deployment guide](docs/deployment.md) for repository permissions, the scoped deployment key, and release verification.

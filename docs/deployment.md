@@ -27,7 +27,9 @@
 
 ## 前端仓库与变量
 
-源码使用独立 `math-learning-workbench` 公共仓库，Pages 发布源已设为 GitHub Actions。公开源码中不能含私人资料。私有源仓库也不等于私有站点。
+完整源码保存在私有 `icelemon233/math-learning-workbench` 仓库。公开 `icelemon233/icelemon233.github.io` 仓库只保存网站构建文件与静态发布配置；本站文件放在 `math-learning-workbench/` 子目录，保持原网址。不要将源码仓库改回公开，也不要把源码目录、数据库脚本、环境文件或维护文档复制到发布仓库。
+
+前端 JavaScript 必须下载到浏览器，仍可被查看。关闭源映射并单独发布产物可以避免公开完整项目源码，不能把浏览器程序变成秘密；凭证与访问控制仍必须放在后端。
 
 仓库已配置以下两个 **Repository variables**；更换后端时，在 **Settings → Secrets and variables → Actions → Variables** 更新：
 
@@ -38,11 +40,13 @@
 
 公开密钥仅标识应用，数据权限由本人会话和 RLS 决定。不要填写 `sb_secret_`、旧版 `service_role` JWT、登录密码或模型 API Key。
 
-在 **Settings → Pages** 保持 **GitHub Actions** 发布源。工作流仅在 `main` 推送时自动运行，发布构建后的 `dist/`；开发分支不会自动发布。
+在公开发布仓库的 **Settings → Pages** 保持 **GitHub Actions** 发布源。私有源码仓库不启用 Pages。源码工作流在 `main` 推送时自动运行，也支持手动重试；开发分支不会自动发布。
+
+源码仓库的 Actions Secret `PAGES_DEPLOY_KEY` 保存专用 SSH 私钥，其公钥作为带写入权限的 Deploy Key 添加在公开发布仓库。该密钥仅能写入发布仓库，不授予其他仓库权限。只在依赖安装、测试、构建和检查全部完成后加载它。替换密钥时先配置新密钥并验证自动发布，再撤销旧密钥；不要提交私钥或使用个人全账户访问令牌代替。
 
 ## 工作流与本地检查
 
-运行环境固定为 Node.js 24、pnpm 11.25.0，使用锁文件安装依赖。工作流将官方 Actions 固定到完整提交 SHA，并将构建权限与部署权限分开；不需要额外的长期发布 token。
+运行环境固定为 Node.js 24、pnpm 11.25.0，使用锁文件安装依赖。官方 Actions 固定到完整提交 SHA。私有仓库工作流只读源码，通过专用密钥写入发布仓库；公开仓库工作流只将静态文件上传到 Pages，不接触后端凭证或私有源码。
 
 ```sh
 corepack enable
@@ -50,22 +54,28 @@ corepack prepare pnpm@11.25.0 --activate
 pnpm install --frozen-lockfile
 node scripts/validate-config.mjs
 pnpm test
+pnpm test:ai
+pnpm test:publish
 pnpm build
 node scripts/validate-config.mjs --check-dist
+node scripts/validate-public-build.mjs
 ```
 
 本地校验读取 `.env.local` 等生产模式环境文件和当前进程变量，与正式构建保持一致。配置缺失、使用后端密钥或新增未经允许的 `VITE_` 变量时会阻止发布；构建产物还会检查常见后端凭证格式。检查无法代替源码与权限审阅。
 
+公开构建检查采用文件白名单，只接受入口页面、带哈希的 JS/CSS 构建文件与静态素材；拒绝项目源码目录、源映射（含内嵌映射）、环境文件和符号链接。同步时只复制通过检查的 `dist/`，并记录不含业务数据的版本号 `release.json`；不上传源码仓库的其他文件。
+
 ## 发布后核验
 
-等待 **Actions → Deploy static site** 完成，使用 `github-pages` 环境返回的网址打开站点。核验首页资源可加载、未登录无学生数据、本人可登录、记录可保存，以及第二台已登录设备能接收更新。最后检查反馈复制、月报 Word 下载与打印 PDF。
+先等待私有仓库 **Actions → Publish compiled site** 完成，再等待公开发布仓库 **Actions → Deploy static site** 完成。核对站点 `release.json` 的版本与源码提交一致，公开仓库中无项目源码和源映射。使用原站点网址核验首页资源可加载、未登录无学生数据、本人可登录、记录可保存，以及第二台已登录设备能接收更新。最后检查反馈复制、月报 Word 下载与打印 PDF。
 
 模型未配置时不应把固定模板冒充实时智能结果。配置模型后，再验证反馈、月报、薄弱归纳与下节建议。课后反馈可核对、编辑后保存；月报生成前确认周期和依据，保存后固定不再修改。
 
 ## 故障定位
 
 - **配置检查失败**：补齐仓库 Variables，确认只填写公开项目配置，然后重新运行失败工作流。
-- **Pages 配置读取失败**：确认已选择 GitHub Actions 发布源，且账户计划允许该仓库发布 Pages。
+- **发布仓库同步失败**：确认源码仓库存在 `PAGES_DEPLOY_KEY` Secret，其公钥在发布仓库具有写入权限；检查发布仓库分支规则是否阻止直接推送。
+- **Pages 配置读取失败**：确认公开发布仓库已选择 GitHub Actions 发布源；私有源码仓库不运行 Pages 部署步骤。
 - **登录失败**：确认本人账户已创建、密码正确且后端项目正常运行；保持公开注册关闭。
 - **页面可打开但数据无权限**：检查白名单、表授权和 RLS，不要通过关闭 RLS 解决。
 - **多端未更新**：检查登录会话、实时 publication、订阅状态；重新联网后重新读取数据。
