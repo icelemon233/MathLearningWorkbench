@@ -2,23 +2,23 @@
 
 English | [简体中文](./README.zh-CN.md)
 
-A workspace for math tutors to record lessons, track topic mastery, and turn class notes into useful feedback and learning reports.
+A workspace for math tutors to keep lesson records, track topic mastery, and prepare feedback and learning reports.
 
-## What you can do
+## Lessons and reports
 
 - Maintain student profiles and a math topic catalog.
 - Record lesson content, homework, observations, and next steps.
-- Track each student's understanding of individual topics.
-- Write and revise feedback, with optional AI assistance.
-- Create reports for a month or a custom period, export Word documents, or print to PDF.
+- Update each student's mastery of individual topics.
+- Write feedback or generate an editable AI draft.
+- Create reports for a month or a custom period; export Word files or print to PDF.
 
-Saved reports preserve a snapshot of the learning record at the time they are created. AI drafts remain editable and should be reviewed before sharing.
+Saved reports keep a snapshot of the learning record when they are created. Review AI drafts before sharing them.
 
-## Use your own workspace
+## Run your own workspace
 
-The app requires a configured Supabase backend and an authorized account. AI assistance is optional; recording lessons and writing feedback can be done manually.
+Requires Node.js 24, pnpm 11.25.0, a configured Supabase backend, and an authorized account. AI assistance is optional.
 
-For a local setup, use Node.js 24 and pnpm 11.25.0. Prepare your own backend and account, then copy `.env.example` to `.env.local` and fill in your project URL and publishable client key. Model credentials belong on the backend.
+Prepare your backend and account, then copy `.env.example` to `.env.local`. Fill in your project URL and publishable client key; model credentials stay on the backend.
 
 ```sh
 pnpm install --frozen-lockfile
