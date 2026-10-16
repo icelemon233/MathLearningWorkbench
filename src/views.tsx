@@ -56,9 +56,13 @@ export function Dashboard({ data, openStudent, addStudent, addLesson, openLesson
   ];
   return <div className="page-stack">
     <ViewHeading title="学习概览" description="查看近期课堂、学生档案与当前掌握情况。" action={<Button type="primary" icon={<PlusOutlined />} onClick={active.length ? addLesson : addStudent}>{active.length ? '记录课堂' : '添加第一位学生'}</Button>} />
-    <Row gutter={[16, 16]}>{stats.map(stat => <Col xs={12} sm={12} xl={6} key={stat.title}><Card className="stat-card" size="small">
-      <Statistic title={stat.title} value={stat.value} suffix={stat.suffix} prefix={stat.icon} /><Text type="secondary">{stat.note}</Text>
-    </Card></Col>)}</Row>
+    <Card className="overview-stats" variant="borderless">
+      <section className="metric-grid" aria-label="教学概览统计">{stats.map(stat => <div className="metric-item" role="group" aria-label={stat.title} key={stat.title}>
+        <Statistic title={<div className="metric-heading"><Text className="metric-label">{stat.title}</Text><span className="metric-icon" aria-hidden>{stat.icon}</span></div>}
+          value={stat.value} suffix={<span className="metric-unit">{stat.suffix}</span>} />
+        <Text className="metric-note">{stat.note}</Text>
+      </div>)}</section>
+    </Card>
     <Row gutter={[16, 16]} align="stretch">
       <Col xs={24} xl={16}><Card title="最近课堂" style={{ height: '100%' }} extra={active.length > 0 && <Button type="link" onClick={addLesson}>新增记录</Button>}>
         <Table<Lesson> rowKey="id" columns={columns} dataSource={recent} size="small" pagination={false} scroll={{ x: 640 }}
