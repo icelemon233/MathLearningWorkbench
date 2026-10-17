@@ -30,7 +30,7 @@ pnpm dev
 
 ## 部署与源码访问
 
-完整源码、后端代码和维护文档保存在私有仓库。推送 `main` 后，工作流校验配置、测试并构建，再把通过检查的网页产物同步到公开发布仓库，由它的 Pages 工作流发布网站，保持原网址。
+完整源码、后端代码和维护文档保存在私有仓库。推送 `main` 后，工作流校验配置、测试并构建，再把通过检查的网页产物同步到公开发布仓库 [CinnaGithubPage](https://github.com/icelemon233/CinnaGithubPage)，由它的 Pages 工作流发布[网站](https://icelemon233.github.io/CinnaGithubPage/math-learning-workbench/)。
 
 发布前会阻止源映射、环境文件和项目源码目录进入公开仓库。浏览器运行需要下载前端 JavaScript，因此前端构建文件仍可查看；学生资料与模型凭证不包含在构建中。仓库权限、专用发布密钥和版本核验方法见 [部署说明](docs/deployment.md)。
 

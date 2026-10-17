@@ -64,7 +64,7 @@ jobs:
       - name: Check out compiled-site repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: icelemon233/icelemon233.github.io
+          repository: icelemon233/CinnaGithubPage
           ref: main
           path: published-site
           ssh-key: ${{ secrets.PAGES_DEPLOY_KEY }}

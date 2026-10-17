@@ -1,6 +1,6 @@
 # 部署说明
 
-站点入口：[数学学习工作台](https://icelemon233.github.io/math-learning-workbench/)。前端由 GitHub Pages 发布，数据、登录与模型调用由独立后端提供。
+站点入口：[数学学习工作台](https://icelemon233.github.io/CinnaGithubPage/math-learning-workbench/)。前端由 GitHub Pages 发布，数据、登录与模型调用由独立后端提供。
 
 ## 访问边界
 
@@ -27,7 +27,7 @@
 
 ## 前端仓库与变量
 
-完整源码保存在私有 `icelemon233/math-learning-workbench` 仓库。公开 `icelemon233/icelemon233.github.io` 仓库只保存网站构建文件与静态发布配置；本站文件放在 `math-learning-workbench/` 子目录，保持原网址。不要将源码仓库改回公开，也不要把源码目录、数据库脚本、环境文件或维护文档复制到发布仓库。
+完整源码保存在私有 `icelemon233/MathLearningWorkbench` 仓库。公开 `icelemon233/CinnaGithubPage` 仓库只保存网站构建文件与静态发布配置；本站文件放在 `math-learning-workbench/` 子目录，Pages 地址包含 `/CinnaGithubPage/` 仓库路径。不要将源码仓库改回公开，也不要把源码目录、数据库脚本、环境文件或维护文档复制到发布仓库。
 
 前端 JavaScript 必须下载到浏览器，仍可被查看。关闭源映射并单独发布产物可以避免公开完整项目源码，不能把浏览器程序变成秘密；凭证与访问控制仍必须放在后端。
 
@@ -67,7 +67,7 @@ node scripts/validate-public-build.mjs
 
 ## 发布后核验
 
-先等待私有仓库 **Actions → Publish compiled site** 完成，再等待公开发布仓库 **Actions → Deploy static site** 完成。核对站点 `release.json` 的版本与源码提交一致，公开仓库中无项目源码和源映射。使用原站点网址核验首页资源可加载、未登录无学生数据、本人可登录、记录可保存，以及第二台已登录设备能接收更新。最后检查反馈复制、月报 Word 下载与打印 PDF。
+先等待私有仓库 **Actions → Publish compiled site** 完成，再等待公开发布仓库 **Actions → Deploy static site** 完成。核对站点 `release.json` 的版本与源码提交一致，公开仓库中无项目源码和源映射。使用本文开头的站点网址核验首页资源可加载、未登录无学生数据、本人可登录、记录可保存，以及第二台已登录设备能接收更新。最后检查反馈复制、月报 Word 下载与打印 PDF。
 
 模型未配置时不应把固定模板冒充实时智能结果。配置模型后，再验证反馈、月报、薄弱归纳与下节建议。课后反馈可核对、编辑后保存；月报生成前确认周期和依据，保存后固定不再修改。
 
