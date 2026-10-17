@@ -114,7 +114,7 @@ export default function App() {
       <Text type="secondary" className="menu-caption">教学管理</Text>
       {menu}{sidebarFooter}
     </Sider>}
-    <Drawer title={<Space><CalculatorOutlined />数学教学手记</Space>} placement="left" size={256}
+    <Drawer title={<Space><CalculatorOutlined />MathLearningWorkbench</Space>} placement="left" size={256}
       open={mobileNav && !screens.lg} onClose={() => setMobileNav(false)} footer={sidebarFooter}
       styles={{ body: { padding: '12px 8px' } }}>
       {menu}
@@ -160,7 +160,7 @@ export default function App() {
         {view === 'reports' && <ReportsView data={data} add={newReport} open={report => open({ type: 'report-view', report })} />}
         </Suspense>
       </Content>
-      <Footer className="app-footer"><Text type="secondary">数学教学手记 · 记录事实，明确下一步</Text></Footer>
+      <Footer className="app-footer"><Text type="secondary">MathLearningWorkbench · 记录事实，明确下一步</Text></Footer>
     </Layout>
     {modal && <Dialog key={modal.type} title={modalTitle} subtitle={modal.type === 'lesson' ? '先记下事实，再整理反馈。' : undefined}
       close={busy ? () => {} : close} busy={busy} wide={['lesson', 'report', 'report-view'].includes(modal.type)}>
@@ -213,7 +213,7 @@ export default function App() {
 }
 
 function Brand({ onClick }: { onClick: () => void }) {
-  return <Button type="text" className="brand" onClick={onClick} icon={<CalculatorOutlined />}>数学教学手记</Button>;
+  return <Button type="text" className="brand" onClick={onClick} icon={<CalculatorOutlined />}>MathLearningWorkbench</Button>;
 }
 
 function FeedbackEditor({ lesson, studentName, busy, run }: { lesson: Lesson; studentName: string; busy: boolean; run: Run }) {
@@ -289,7 +289,7 @@ function Login({ sessionExists, error, signOut }: { sessionExists: boolean; erro
   };
   return <Layout className="login-page">
     <div className="login-theme"><ThemeButton /></div>
-    <div className="login-brand"><CalculatorOutlined /><Text strong>数学教学手记</Text></div>
+    <div className="login-brand"><CalculatorOutlined /><Text strong>MathLearningWorkbench</Text></div>
     <Card className="login-card">
       <Space orientation="vertical" size={8} className="full-width login-heading">
         <Avatar size={52} icon={<LockOutlined />} className="accent-avatar" />

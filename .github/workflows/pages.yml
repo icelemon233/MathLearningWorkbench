@@ -83,6 +83,6 @@ jobs:
           printf '{"revision":"%s"}\n' "$SOURCE_REVISION" > published-site/math-learning-workbench/release.json
           git -C published-site add -- math-learning-workbench
           if ! git -C published-site diff --cached --quiet; then
-            git -C published-site -c user.name='Workbench Maintainer' -c user.email='maintainer@users.noreply.github.com' commit -m "Publish $SOURCE_REVISION"
+            git -C published-site -c user.name='Cinna' -c user.email='maintainer@users.noreply.github.com' commit -m "Publish $SOURCE_REVISION"
             git -C published-site push origin HEAD:main
           fi

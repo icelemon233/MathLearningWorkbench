@@ -1,6 +1,6 @@
-<p align="center"><img src="./docs/brand/cinna-app-icon.png" alt="Math Learning Workbench Cinna icon" width="128"></p>
+<p align="center"><img src="./docs/brand/cinna-app-icon.png" alt="MathLearningWorkbench icon" width="128"></p>
 
-<h1 align="center">Math Learning Workbench</h1>
+<h1 align="center">MathLearningWorkbench</h1>
 
 <p align="center">English · <a href="./README.zh-CN.md">简体中文</a></p>
 
@@ -35,3 +35,5 @@ Open the local address printed by the server and sign in with the account config
 The application source, backend code, and maintenance documents stay in a private repository. Pushing `main` runs configuration checks, tests, and a production build, then copies only validated web files to the public distribution repository. Its Pages workflow publishes the website at the existing address.
 
 Source maps, environment files, and project source directories are blocked before publication. Browser JavaScript remains downloadable; student records and model credentials are not included in the build. See the [deployment guide](docs/deployment.md) for repository permissions, the scoped deployment key, and release verification.
+
+Developer: Cinna.

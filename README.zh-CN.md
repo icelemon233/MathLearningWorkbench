@@ -1,6 +1,6 @@
-<p align="center"><img src="./docs/brand/cinna-app-icon.png" alt="Math Learning Workbench Cinna icon" width="128"></p>
+<p align="center"><img src="./docs/brand/cinna-app-icon.png" alt="MathLearningWorkbench icon" width="128"></p>
 
-<h1 align="center">Math Learning Workbench · 数学学习工作台</h1>
+<h1 align="center">MathLearningWorkbench</h1>
 
 <p align="center"><a href="./README.md">English</a> · 简体中文</p>
 
@@ -35,3 +35,5 @@ pnpm dev
 发布前会阻止源映射、环境文件和项目源码目录进入公开仓库。浏览器运行需要下载前端 JavaScript，因此前端构建文件仍可查看；学生资料与模型凭证不包含在构建中。仓库权限、专用发布密钥和版本核验方法见 [部署说明](docs/deployment.md)。
 
 打开服务输出的本地地址，使用自己部署时配置的账户登录。
+
+开发者：Cinna。
