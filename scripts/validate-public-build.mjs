@@ -7,8 +7,8 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const staticExtensions = new Set(['.svg', '.ico', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif', '.woff', '.woff2', '.ttf', '.eot']);
 const forbiddenDirectories = new Set(['src', 'scripts', 'supabase', 'node_modules', 'tests', 'docs']);
 
-// A fail-closed boundary for copying dist into a public repository. This does
-// not make browser JavaScript secret; it prevents publishing project sources.
+// The Pages artifact contains deployable web files only. Backend sources,
+// environment files and source maps do not belong in the website artifact.
 export async function validatePublicBuild(directory) {
   const errors = [];
   const root = await lstat(directory).catch(() => null);

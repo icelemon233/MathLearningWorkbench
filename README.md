@@ -6,6 +6,8 @@
 
 A workspace for math tutors to keep lesson records, track topic mastery, and prepare feedback and learning reports.
 
+[Open workspace](https://icelemon233.github.io/MathLearningWorkbench/). The hosted workspace requires an authorized account.
+
 ## Lessons and reports
 
 - Maintain student profiles and a math topic catalog.
@@ -20,7 +22,7 @@ Saved reports keep a snapshot of the learning record when they are created. Revi
 
 Requires Node.js 24, pnpm 11.25.0, a configured Supabase backend, and an authorized account. AI assistance is optional.
 
-Prepare your backend and account, then copy `.env.example` to `.env.local`. Fill in your project URL and publishable client key; model credentials stay on the backend.
+Follow the [backend setup guide](supabase/backend-setup.md) to prepare your backend and account, then copy `.env.example` to `.env.local`. Fill in your project URL and publishable client key; model credentials stay on the backend.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -30,10 +32,8 @@ pnpm dev
 
 Open the local address printed by the server and sign in with the account configured for your deployment.
 
-## Deployment and source privacy
+## Deployment
 
-The application source, backend code, and maintenance documents stay in a private repository. Pushing `main` runs configuration checks, tests, and a production build, then copies only validated web files to [CinnaGithubPage](https://github.com/icelemon233/CinnaGithubPage). Its Pages workflow publishes the [website](https://icelemon233.github.io/CinnaGithubPage/math-learning-workbench/).
-
-Source maps, environment files, and project source directories are blocked before publication. Browser JavaScript remains downloadable; student records and model credentials are not included in the build. See the [deployment guide](docs/deployment.md) for repository permissions, the scoped deployment key, and release verification.
+This repository includes the application and backend source. GitHub Pages hosts the web app; teaching records and model credentials stay in your backend. See the [deployment guide](docs/deployment.md) to publish your own workspace.
 
 Developer: Cinna.

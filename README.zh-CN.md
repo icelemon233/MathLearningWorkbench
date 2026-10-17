@@ -6,6 +6,8 @@
 
 供数学教师记录课堂、跟踪知识掌握情况、整理课后反馈与学习报告。
 
+[打开工作台](https://icelemon233.github.io/MathLearningWorkbench/)。托管工作台需要获准使用的账户。
+
 ## 课堂与报告
 
 - 维护学生档案和数学知识目录。
@@ -20,7 +22,7 @@
 
 需要 Node.js 24、pnpm 11.25.0、已配置的 Supabase 后端，以及获准使用的账户。AI 辅助为可选功能。
 
-准备后端与账户后，将 `.env.example` 复制为 `.env.local`，填写项目地址和 publishable 客户端密钥。模型凭据留在后端。
+按[后端配置说明](supabase/backend-setup.md)准备后端与账户，再将 `.env.example` 复制为 `.env.local`，填写项目地址和 publishable 客户端密钥。模型凭据留在后端。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -28,12 +30,10 @@ node scripts/validate-config.mjs
 pnpm dev
 ```
 
-## 部署与源码访问
-
-完整源码、后端代码和维护文档保存在私有仓库。推送 `main` 后，工作流校验配置、测试并构建，再把通过检查的网页产物同步到公开发布仓库 [CinnaGithubPage](https://github.com/icelemon233/CinnaGithubPage)，由它的 Pages 工作流发布[网站](https://icelemon233.github.io/CinnaGithubPage/math-learning-workbench/)。
-
-发布前会阻止源映射、环境文件和项目源码目录进入公开仓库。浏览器运行需要下载前端 JavaScript，因此前端构建文件仍可查看；学生资料与模型凭证不包含在构建中。仓库权限、专用发布密钥和版本核验方法见 [部署说明](docs/deployment.md)。
-
 打开服务输出的本地地址，使用自己部署时配置的账户登录。
+
+## 部署
+
+本仓库包含应用与后端源码。网页由 GitHub Pages 托管，教学记录和模型凭据保存在自己的后端。发布自己的工作台可按[部署说明](docs/deployment.md)配置。
 
 开发者：Cinna。
