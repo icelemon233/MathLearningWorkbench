@@ -1,6 +1,8 @@
-# Math Learning Workbench · 数学学习工作台
+<p align="center"><img src="./docs/brand/cinna-app-icon.png" alt="Math Learning Workbench Cinna icon" width="128"></p>
 
-[English](./README.md) | 简体中文
+<h1 align="center">Math Learning Workbench · 数学学习工作台</h1>
+
+<p align="center"><a href="./README.md">English</a> · 简体中文</p>
 
 供数学教师记录课堂、跟踪知识掌握情况、整理课后反馈与学习报告。
 

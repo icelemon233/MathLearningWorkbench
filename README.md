@@ -1,6 +1,8 @@
-# Math Learning Workbench
+<p align="center"><img src="./docs/brand/cinna-app-icon.png" alt="Math Learning Workbench Cinna icon" width="128"></p>
 
-English | [简体中文](./README.zh-CN.md)
+<h1 align="center">Math Learning Workbench</h1>
+
+<p align="center">English · <a href="./README.zh-CN.md">简体中文</a></p>
 
 A workspace for math tutors to keep lesson records, track topic mastery, and prepare feedback and learning reports.
 
