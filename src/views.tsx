@@ -126,10 +126,10 @@ export function StudentsView({ data, selectedId, selectStudent, category, change
           <Select<'active' | 'archived'> aria-label="学生分类" value={category} onChange={changeCategory} disabled={busy}
             options={[{ value: 'active', label: '在读学生' }, { value: 'archived', label: '已归档学生' }]} style={{ width: '100%' }} />
           <Space orientation="vertical" size={4} className="student-picker-list" style={{ width: '100%' }}>{students.map(student => <Button block key={student.id} className="student-list-row"
-            type={selected?.id === student.id ? 'primary' : 'text'} onClick={() => selectStudent(student.id)} style={{ height: 'auto', padding: 12, textAlign: 'left', justifyContent: 'flex-start' }}>
-            <Avatar size={32} className="accent-avatar" style={{ flexShrink: 0 }}>{student.name.slice(0, 1)}</Avatar>
-            <Space orientation="vertical" size={0} style={{ minWidth: 0, alignItems: 'flex-start' }}><Text strong style={{ color: 'inherit' }}>{student.name}</Text>
-              <Text style={{ color: 'inherit', fontSize: 12 }}>{student.grade || '年级未填写'}{student.archived ? ' · 已归档' : ''}</Text>
+            type="text" aria-pressed={selected?.id === student.id} onClick={() => selectStudent(student.id)}>
+            <Avatar size={32} className="accent-avatar">{student.name.slice(0, 1)}</Avatar>
+            <Space orientation="vertical" size={0}><Text strong className="student-list-name">{student.name}</Text>
+              <Text className="student-list-meta">{student.grade || '年级未填写'}{student.archived ? ' · 已归档' : ''}</Text>
             </Space>
           </Button>)}{students.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={search.trim() ? `没有匹配的${categoryLabel}` : `暂无${categoryLabel}`} />}</Space>
         </Space>

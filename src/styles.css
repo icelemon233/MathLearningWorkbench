@@ -59,9 +59,21 @@ body { margin: 0; background: #f5f7fa; }
 .metric-item .ant-statistic-content-suffix { margin-inline-start: 6px; }
 .metric-unit { color: #64748b; font-size: 14px; font-weight: 400; letter-spacing: 0; }
 .metric-note.ant-typography { display: block; margin-top: 10px; color: #64748b; font-size: 12px; line-height: 1.6; text-wrap: pretty; }
-.student-list-row.ant-btn { width: 100%; height: auto; padding: 12px; text-align: left; justify-content: flex-start; white-space: normal; }
-.student-list-row.ant-btn > .ant-space { flex: 1; min-width: 0; }
+.student-list-row.ant-btn { position: relative; width: 100%; height: auto; padding: 12px 12px 12px 16px; text-align: left; justify-content: flex-start; white-space: normal; }
+.student-list-row.ant-btn::after { content: ''; position: absolute; inset-block: 12px; inset-inline-start: 0; width: 3px; border-radius: 0 3px 3px 0; background: transparent; pointer-events: none; }
+.student-list-row.ant-btn.ant-btn-variant-text:not(:disabled):not(.ant-btn-disabled) { color: #243247; }
+.student-list-row.ant-btn[aria-pressed='true'] { background: var(--workbench-accent-bg); }
+.student-list-row.ant-btn[aria-pressed='true']::after { background: var(--workbench-accent); }
+@media (hover: hover) {
+  .student-list-row.ant-btn.ant-btn-variant-text:not(:disabled):not(.ant-btn-disabled):hover { background: var(--workbench-accent-bg-hover); }
+}
+.student-list-row.ant-btn.ant-btn-variant-text:not(:disabled):not(.ant-btn-disabled):active { background: var(--workbench-accent-bg-active); }
+.student-list-row.ant-btn:not(:disabled):not(.ant-btn-disabled):focus-visible { outline-offset: -2px; }
+.student-list-row.ant-btn > .ant-space { flex: 1; min-width: 0; align-items: flex-start; }
+.student-list-name.ant-typography { color: inherit; overflow-wrap: anywhere; }
+.student-list-meta.ant-typography { color: #475569; font-size: 12px; overflow-wrap: anywhere; }
 .student-list-row .ant-avatar { flex: 0 0 32px; width: 32px; height: 32px; }
+.student-list-row[aria-pressed='true'] .accent-avatar { background: #ffffff; }
 .student-picker-list { max-height: 420px; overflow-y: auto; }
 .full-width { width: 100%; }
 .prewrap { white-space: pre-wrap; overflow-wrap: anywhere; }

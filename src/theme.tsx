@@ -39,6 +39,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     '--workbench-on-primary': palette.onSolid, '--workbench-primary-border': palette.solidBorder,
     '--workbench-primary-border-hover': palette.solidHoverBorder, '--workbench-primary-border-active': palette.solidActiveBorder,
     '--workbench-accent': palette.accent, '--workbench-accent-bg': palette.background,
+    '--workbench-accent-bg-hover': palette.backgroundHover, '--workbench-accent-bg-active': palette.backgroundActive,
   }) as CSSProperties, [palette]);
   useEffect(() => {
     // Modals and popups are portals outside AntdApp, so share colors at the root.
@@ -66,7 +67,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       Layout: { headerBg: '#ffffff', siderBg: '#ffffff' },
       Menu: { itemBorderRadius: 6, itemSelectedColor: palette.accent, itemSelectedBg: palette.background,
         itemHoverColor: palette.accentHover, itemHoverBg: palette.backgroundHover, itemActiveBg: palette.backgroundActive },
-      Button: { colorPrimaryBorder: palette.backgroundActive,
+      // Button elevation is independent of the stronger keyboard focus color.
+      Button: { defaultShadow: 'none', primaryShadow: 'none', dangerShadow: 'none', colorPrimaryBorder: palette.backgroundActive,
         defaultHoverColor: palette.accentHover, defaultHoverBorderColor: palette.accentHover, defaultHoverBg: palette.background,
         defaultActiveColor: palette.accentActive, defaultActiveBorderColor: palette.accentActive, defaultActiveBg: palette.backgroundHover,
         textTextHoverColor: palette.accentHover, textTextActiveColor: palette.accentActive, textHoverBg: palette.background },
