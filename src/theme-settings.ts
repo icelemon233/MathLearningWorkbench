@@ -35,12 +35,32 @@ export function solidTextColor(background: string) {
 export function accentTextColor(color: string) {
   let rgb = channels(color);
   let result = normalizeThemeColor(color) ?? DEFAULT_THEME_COLOR;
-  while (contrastRatio(result, '#ffffff') < 5) {
+  const surfaces = ['#f5f7fa', accentBackground(color, 0.2)];
+  while (contrastRatio(result, '#ffffff') < 5 || surfaces.some(surface => contrastRatio(result, surface) < 4.5)) {
     rgb = rgb.map(channel => Math.floor(channel * 0.85));
     result = `#${rgb.map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
   }
   return result;
 }
-export function accentBackground(color: string) {
-  return `#${channels(color).map(channel => Math.round(channel * 0.08 + 255 * 0.92).toString(16).padStart(2, '0')).join('')}`;
+export function accentBackground(color: string, strength = 0.08) {
+  return mixColor(color, '#ffffff', 1 - strength);
+}
+function mixColor(color: string, target: string, amount: number) {
+  const destination = channels(target);
+  return `#${channels(color).map((channel, index) => Math.round(channel * (1 - amount) + destination[index] * amount).toString(16).padStart(2, '0')).join('')}`;
+}
+export function interactionPalette(color: string) {
+  const solid = normalizeThemeColor(color) ?? DEFAULT_THEME_COLOR;
+  const onSolid = solidTextColor(solid);
+  const darkActive = mixColor(solid, '#000000', 0.16);
+  const target = darkActive !== solid && contrastRatio(darkActive, onSolid) >= 4.5 ? '#000000' : '#ffffff';
+  const solidHover = mixColor(solid, target, 0.08), solidActive = mixColor(solid, target, 0.16);
+  const accent = accentTextColor(solid);
+  const accentHover = mixColor(accent, '#000000', 0.08), accentActive = mixColor(accent, '#000000', 0.16);
+  const border = (fill: string, fallback: string) => contrastRatio(fill, '#ffffff') >= 3 ? fill : fallback;
+  return {
+    solid, solidHover, solidActive, onSolid, accent, accentHover, accentActive,
+    background: accentBackground(solid), backgroundHover: accentBackground(solid, 0.14), backgroundActive: accentBackground(solid, 0.2),
+    solidBorder: border(solid, accent), solidHoverBorder: border(solidHover, accentHover), solidActiveBorder: border(solidActive, accentActive),
+  };
 }

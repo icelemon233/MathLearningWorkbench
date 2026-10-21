@@ -2,6 +2,20 @@ html, body, #root { min-height: 100%; }
 body { margin: 0; background: #f5f7fa; }
 * { box-sizing: border-box; }
 .ant-app { min-height: 100dvh; }
+/* Solid fills preserve the chosen HEX. Other component accents use readable
+   semantic colors, so a pale fill never becomes pale hover text on white. */
+.ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled) {
+  color: var(--workbench-on-primary); background: var(--workbench-primary); border-color: var(--workbench-primary-border);
+}
+@media (hover: hover) {
+  .ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled):hover {
+    color: var(--workbench-on-primary); background: var(--workbench-primary-hover); border-color: var(--workbench-primary-border-hover);
+  }
+}
+.ant-btn.ant-btn-color-primary.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled):active {
+  color: var(--workbench-on-primary); background: var(--workbench-primary-active); border-color: var(--workbench-primary-border-active);
+}
+.ant-btn:not(:disabled):not(.ant-btn-disabled):focus-visible { outline: 2px solid var(--workbench-accent); outline-offset: 2px; }
 .app-layout { min-height: 100dvh; }
 .main-layout { min-width: 0; }
 .app-sider { height: 100dvh; position: sticky !important; top: 0; border-right: 1px solid #edf0f3; }

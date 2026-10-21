@@ -129,7 +129,7 @@ export function StudentsView({ data, selectedId, selectStudent, category, change
             type={selected?.id === student.id ? 'primary' : 'text'} onClick={() => selectStudent(student.id)} style={{ height: 'auto', padding: 12, textAlign: 'left', justifyContent: 'flex-start' }}>
             <Avatar size={32} className="accent-avatar" style={{ flexShrink: 0 }}>{student.name.slice(0, 1)}</Avatar>
             <Space orientation="vertical" size={0} style={{ minWidth: 0, alignItems: 'flex-start' }}><Text strong style={{ color: 'inherit' }}>{student.name}</Text>
-              <Text style={{ color: 'inherit', fontSize: 12, opacity: 0.75 }}>{student.grade || '年级未填写'}{student.archived ? ' · 已归档' : ''}</Text>
+              <Text style={{ color: 'inherit', fontSize: 12 }}>{student.grade || '年级未填写'}{student.archived ? ' · 已归档' : ''}</Text>
             </Space>
           </Button>)}{students.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={search.trim() ? `没有匹配的${categoryLabel}` : `暂无${categoryLabel}`} />}</Space>
         </Space>

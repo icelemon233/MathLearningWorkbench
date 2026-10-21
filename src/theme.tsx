@@ -5,7 +5,9 @@ import type { ColorPickerProps } from 'antd';
 import { BgColorsOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import { Dialog } from './components';
-import { accentBackground, accentTextColor, DEFAULT_THEME_COLOR, normalizeThemeColor, solidTextColor, THEME_PRESETS, THEME_STORAGE_KEY } from './theme-settings';
+import { DEFAULT_THEME_COLOR, interactionPalette, normalizeThemeColor, THEME_PRESETS, THEME_STORAGE_KEY } from './theme-settings';
+
+const errorPalette = interactionPalette('#ff4d4f');
 
 const ThemeContext = createContext({ color: DEFAULT_THEME_COLOR, setColor: (_color: string) => {}, remembered: true });
 function initialColor() {
@@ -31,29 +33,50 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     window.addEventListener('storage', changed);
     return () => window.removeEventListener('storage', changed);
   }, []);
-  const accent = accentTextColor(color);
-  const background = accentBackground(color);
+  const palette = useMemo(() => interactionPalette(color), [color]);
+  const variables = useMemo(() => ({
+    '--workbench-primary': palette.solid, '--workbench-primary-hover': palette.solidHover, '--workbench-primary-active': palette.solidActive,
+    '--workbench-on-primary': palette.onSolid, '--workbench-primary-border': palette.solidBorder,
+    '--workbench-primary-border-hover': palette.solidHoverBorder, '--workbench-primary-border-active': palette.solidActiveBorder,
+    '--workbench-accent': palette.accent, '--workbench-accent-bg': palette.background,
+  }) as CSSProperties, [palette]);
   useEffect(() => {
     // Modals and popups are portals outside AntdApp, so share colors at the root.
-    document.documentElement.style.setProperty('--workbench-primary', color);
-    document.documentElement.style.setProperty('--workbench-accent', accent);
-    document.documentElement.style.setProperty('--workbench-accent-bg', background);
+    for (const [name, value] of Object.entries(variables)) document.documentElement.style.setProperty(name, String(value));
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
-  }, [color, accent, background]);
+  }, [color, variables]);
   const value = useMemo(() => ({ color, setColor, remembered }), [color, setColor, remembered]);
   return <ThemeContext.Provider value={value}>
     <ConfigProvider locale={zhCN} theme={{ token: {
-      colorPrimary: color, colorPrimaryText: accent, colorLink: accent, colorLinkHover: accent,
+      // Component accents are readable on light surfaces. The exact selected
+      // color is reserved for filled primary buttons through the shared CSS vars.
+      colorPrimary: palette.accent, colorPrimaryHover: palette.accentHover, colorPrimaryActive: palette.accentActive,
+      colorPrimaryText: palette.accent, colorPrimaryTextHover: palette.accentHover, colorPrimaryTextActive: palette.accentActive,
+      colorPrimaryBg: palette.background, colorPrimaryBgHover: palette.backgroundHover, colorPrimaryBorder: palette.accent,
+      colorPrimaryBorderHover: palette.accentHover,
+      colorLink: palette.accent, colorLinkHover: palette.accentHover, colorLinkActive: palette.accentActive,
+      controlOutline: palette.accent,
+      colorError: errorPalette.accent, colorErrorHover: errorPalette.accentHover, colorErrorActive: errorPalette.accentActive,
+      colorErrorText: errorPalette.accent, colorErrorTextHover: errorPalette.accentHover, colorErrorTextActive: errorPalette.accentActive,
+      colorErrorBg: errorPalette.background, colorErrorBgHover: errorPalette.backgroundHover,
+      colorErrorBgActive: errorPalette.backgroundActive, colorErrorBgFilledHover: errorPalette.backgroundHover,
       colorBgLayout: '#f5f7fa', borderRadius: 8,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
     }, components: {
       Layout: { headerBg: '#ffffff', siderBg: '#ffffff' },
-      Menu: { itemBorderRadius: 6, itemSelectedColor: accent, itemSelectedBg: background },
-      Button: { primaryColor: solidTextColor(color) },
-      Checkbox: { colorWhite: solidTextColor(color) },
-      Radio: { colorWhite: solidTextColor(color), buttonSolidCheckedColor: solidTextColor(color) },
+      Menu: { itemBorderRadius: 6, itemSelectedColor: palette.accent, itemSelectedBg: palette.background,
+        itemHoverColor: palette.accentHover, itemHoverBg: palette.backgroundHover, itemActiveBg: palette.backgroundActive },
+      Button: { colorPrimaryBorder: palette.backgroundActive,
+        defaultHoverColor: palette.accentHover, defaultHoverBorderColor: palette.accentHover, defaultHoverBg: palette.background,
+        defaultActiveColor: palette.accentActive, defaultActiveBorderColor: palette.accentActive, defaultActiveBg: palette.backgroundHover,
+        textTextHoverColor: palette.accentHover, textTextActiveColor: palette.accentActive, textHoverBg: palette.background },
+      Input: { hoverBorderColor: palette.accentHover, activeBorderColor: palette.accent, activeShadow: `0 0 0 2px ${palette.accent}` },
+      InputNumber: { hoverBorderColor: palette.accentHover, activeBorderColor: palette.accent, activeShadow: `0 0 0 2px ${palette.accent}` },
+      Select: { hoverBorderColor: palette.accentHover, activeBorderColor: palette.accent, activeOutlineColor: palette.accent,
+        optionSelectedBg: palette.backgroundHover, optionSelectedColor: palette.accent },
+      DatePicker: { hoverBorderColor: palette.accentHover, activeBorderColor: palette.accent, activeShadow: `0 0 0 2px ${palette.accent}` },
     } }}>
-      <AntdApp style={{ '--workbench-primary': color, '--workbench-accent': accent, '--workbench-accent-bg': background } as CSSProperties}>
+      <AntdApp style={variables}>
         {children}
       </AntdApp>
     </ConfigProvider>
