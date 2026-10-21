@@ -7,7 +7,7 @@ import {
 } from '@ant-design/icons';
 import {
   Avatar, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Flex, Grid, Input,
-  Pagination, Progress, Row, Select, Space, Statistic, Table, Tag, Typography,
+  Pagination, Popconfirm, Progress, Row, Select, Space, Statistic, Table, Tag, Typography,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { displayDate, masteryCounts, monthPeriod, today } from './lib';
@@ -210,15 +210,17 @@ export function KnowledgeView({ data, add, edit, archive }: { data: AppData; add
   const columns: TableColumnsType<KnowledgePoint> = [
     { title: '年级', dataIndex: 'grade', width: 128 },
     { title: '章节', dataIndex: 'chapter', width: 210 },
-    { title: '知识点', render: (_, point) => <Space wrap><Text strong>{point.title}</Text>{point.archived && <Tag>已归档</Tag>}</Space> },
-    { title: '操作', width: 156, render: (_, point) => <Space size={0}><Button type="link" size="small" icon={<EditOutlined />} aria-label={`编辑${point.title}`} onClick={() => edit(point)}>编辑</Button><Button type="link" size="small" onClick={() => archive(point)}>{point.archived ? '恢复' : '归档'}</Button></Space> },
+    { title: '知识点', render: (_, point) => <Space wrap><Text strong>{point.title}</Text>{point.archived && <Tag>已移除</Tag>}</Space> },
+    { title: '操作', width: 156, render: (_, point) => <Space size={0}><Button type="link" size="small" icon={<EditOutlined />} aria-label={`编辑${point.title}`} onClick={() => edit(point)}>编辑</Button>{point.archived
+      ? <Button type="link" size="small" onClick={() => archive(point)}>恢复</Button>
+      : <Popconfirm title="删除这个知识点选项？" description="将从可选列表中移除，已有课堂和月报保留。" okText="删除" cancelText="取消" onConfirm={() => archive(point)}><Button type="link" danger size="small">删除</Button></Popconfirm>}</Space> },
   ];
   return <div className="page-stack">
     <ViewHeading title="数学知识目录" description="按年级和章节维护共用目录，为每位学生关联适用知识点。" action={<Button type="primary" icon={<PlusOutlined />} onClick={add}>添加知识点</Button>} />
     <Card title="共用知识目录" extra={<Text type="secondary">{rows.length} 个知识点</Text>}><div className="filter-bar">
       <Select aria-label="筛选知识目录年级" placeholder="全部年级" allowClear value={grade} onChange={setGrade} options={grades.map(value => ({ value, label: value }))} style={{ width: 180 }} />
       <Input prefix={<SearchOutlined />} aria-label="搜索知识点" placeholder="搜索章节或知识点" value={search} allowClear onChange={event => setSearch(event.target.value)} style={{ width: 280, maxWidth: '100%' }} />
-      <Checkbox checked={archived} onChange={event => setArchived(event.target.checked)}>包含已归档</Checkbox>
+      <Checkbox checked={archived} onChange={event => setArchived(event.target.checked)}>包含已移除选项</Checkbox>
     </div>
       <Table<KnowledgePoint> key={`${grade ?? ''}:${search}:${archived}`} rowKey="id" columns={columns} dataSource={rows} size="small" pagination={pagination} scroll={{ x: 720 }}
         locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={grade || search ? '没有匹配的知识点，请调整筛选条件。' : '按年级和章节添加知识点，建立共用目录。'}><Button icon={<PlusOutlined />} onClick={add}>添加知识点</Button></Empty> }} />

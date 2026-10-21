@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { aiErrorMessage } from './lib';
+import { aiErrorMessage, normalizeKnowledgeTitle } from './lib';
 import type { AppData, KnowledgePoint, KnowledgeUpdate, Lesson, MasteryStatus, ReportContent, Student, StudentKnowledge } from './types';
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -31,8 +31,39 @@ export async function saveKnowledgePoint(input: Partial<KnowledgePoint>) {
   const client = requiredDb();
   return unwrap(await (input.id ? client.from('knowledge_points').update(input).eq('id', input.id) : client.from('knowledge_points').insert(input)).select().single()) as KnowledgePoint;
 }
+export async function ensureKnowledgeOption(grade: string, input: string): Promise<KnowledgePoint> {
+  const title = normalizeKnowledgeTitle(input), normalizedGrade = grade.trim() || '通用';
+  if (!title || title.length > 150) throw new Error('知识点名称应为 1 至 150 个字。');
+  if (normalizedGrade.length > 40) throw new Error('年级名称不能超过 40 个字。');
+  const client = requiredDb();
+  const find = () => client.from('knowledge_points').select('*').eq('grade', normalizedGrade).eq('title', title)
+    .order('archived').order('sort_order').order('created_at').limit(1).maybeSingle();
+  const existing = unwrap(await find()) as KnowledgePoint | null;
+  if (existing) {
+    if (!existing.archived) return existing;
+    return restoreKnowledgeOption(existing);
+  }
+  const inserted = await client.from('knowledge_points').insert({ grade: normalizedGrade, chapter: '未分类', title, sort_order: 0 }).select().single();
+  if (inserted.error?.code === '23505') {
+    // A second device may have created the same option between read and insert.
+    const winner = unwrap(await find()) as KnowledgePoint | null;
+    if (winner && !winner.archived) return winner;
+    throw new Error('knowledge_option_conflict');
+  }
+  return unwrap(inserted) as KnowledgePoint;
+}
+async function setKnowledgeOptionArchived(point: KnowledgePoint, archived: boolean): Promise<KnowledgePoint> {
+  const saved = unwrap(await requiredDb().from('knowledge_points').update({ archived })
+    .eq('id', point.id).eq('updated_at', point.updated_at).select().maybeSingle()) as KnowledgePoint | null;
+  if (!saved) throw new Error('knowledge_option_conflict');
+  return saved;
+}
+export const deleteKnowledgeOption = (point: KnowledgePoint) => setKnowledgeOptionArchived(point, true);
+export const restoreKnowledgeOption = (point: KnowledgePoint) => setKnowledgeOptionArchived(point, false);
 export async function saveMastery(studentId: string, pointId: string, status: MasteryStatus, note: string, previous?: StudentKnowledge) {
   const client = requiredDb();
+  const point = unwrap(await client.from('knowledge_points').select('id,archived').eq('id', pointId).maybeSingle());
+  if (!point || point.archived) throw new Error('knowledge_option_missing');
   const payload = { student_id: studentId, knowledge_point_id: pointId, status, note, last_lesson_id: null };
   const result = previous
     ? await client.from('student_knowledge').update(payload).eq('id', previous.id).eq('updated_at', previous.updated_at).select().maybeSingle()

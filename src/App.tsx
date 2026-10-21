@@ -8,9 +8,9 @@ import {
   DeleteOutlined, DownloadOutlined, FileTextOutlined, LockOutlined, LoginOutlined, LogoutOutlined, MenuOutlined,
   PrinterOutlined, ReadOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined, UserOutlined,
 } from '@ant-design/icons';
-import { assignPoints, db, deleteLesson, invokeAI, saveKnowledgePoint, saveLesson, saveMastery, saveMonthlyReport, saveStudent } from './api';
+import { assignPoints, db, deleteKnowledgeOption, deleteLesson, ensureKnowledgeOption, invokeAI, restoreKnowledgeOption, saveKnowledgePoint, saveLesson, saveMastery, saveMonthlyReport, saveStudent } from './api';
 import { Dialog } from './components';
-import { displayDate, errorMessage, today } from './lib';
+import { APP_NAME, displayDate, errorMessage, today } from './lib';
 import { exportReportDocx, printReport } from './export-report';
 import { useWorkspace } from './use-workspace';
 import { ThemeButton } from './theme';
@@ -31,7 +31,7 @@ const StudentForm = lazy(() => import('./forms').then(module => ({ default: modu
 const FeedbackEditor = lazy(() => import('./feedback').then(module => ({ default: module.FeedbackEditor })));
 type View = 'dashboard' | 'students' | 'lessons' | 'knowledge' | 'reports';
 type Modal = { type: 'student'; student?: Student } | { type: 'knowledge'; point?: KnowledgePoint }
-  | { type: 'lesson'; lesson?: Lesson } | { type: 'lesson-delete'; lesson: Lesson } | { type: 'mastery'; current?: StudentKnowledge }
+  | { type: 'lesson'; lesson?: Lesson } | { type: 'lesson-delete'; lesson: Lesson } | { type: 'mastery'; studentId: string; current?: StudentKnowledge }
   | { type: 'feedback'; lesson: Lesson } | { type: 'report' } | { type: 'report-view'; report: MonthlyReport }
   | { type: 'insights'; name: string; content: string; suggestions: string[] };
 type Run = (action: () => Promise<unknown>, message?: string, refresh?: boolean) => Promise<boolean>;
@@ -59,6 +59,7 @@ export default function App() {
   const studentScope = view === 'students' ? data.students.filter(student => student.archived === (studentCategory === 'archived')) : data.students;
   const currentStudent = studentScope.find(student => student.id === selectedId)
     ?? (view === 'students' ? studentScope[0] : data.students.find(student => !student.archived));
+  const masteryStudent = modal?.type === 'mastery' ? data.students.find(student => student.id === modal.studentId) : undefined;
   const close = useCallback(() => { setModal(null); setModalError(''); }, []);
   const open = (next: Modal) => { setModalError(''); setModal(next); };
   const notify = (content: string, error = false) => {
@@ -115,7 +116,7 @@ export default function App() {
       <Text type="secondary" className="menu-caption">教学管理</Text>
       {menu}{sidebarFooter}
     </Sider>}
-    <Drawer title={<Space><CalculatorOutlined />MathLearningWorkbench</Space>} placement="left" size={256}
+    <Drawer title={<Space><CalculatorOutlined />{APP_NAME}</Space>} placement="left" size={256}
       open={mobileNav && !screens.lg} onClose={() => setMobileNav(false)} footer={sidebarFooter}
       styles={{ body: { padding: '12px 8px' } }}>
       {menu}
@@ -146,7 +147,7 @@ export default function App() {
         {view === 'students' && <StudentsView data={data} selectedId={currentStudent?.id ?? ''} selectStudent={setSelectedId}
           category={studentCategory} changeCategory={setStudentCategory}
           addStudent={addStudent} editStudent={student => open({ type: 'student', student })} addLesson={addLesson}
-          mastery={current => open({ type: 'mastery', current })} busy={busy}
+          mastery={current => { if (currentStudent) { setSelectedId(currentStudent.id); open({ type: 'mastery', studentId: currentStudent.id, current }); } }} busy={busy}
           assign={() => { if (currentStudent) void run(() => assignPoints(currentStudent.id, data.knowledgePoints.filter(point => !point.archived && point.grade === currentStudent.grade)), '已关联年级目录，已有掌握记录保持原值'); }}
           insights={() => { if (currentStudent) void run(async () => {
             const result = await invokeAI({ action: 'student_insights', student_id: currentStudent.id });
@@ -157,11 +158,11 @@ export default function App() {
           remove={lesson => open({ type: 'lesson-delete', lesson })}
           edit={lesson => { setSelectedId(lesson.student_id); open({ type: 'lesson', lesson }); }} />}
         {view === 'knowledge' && <KnowledgeView data={data} add={() => open({ type: 'knowledge' })} edit={point => open({ type: 'knowledge', point })}
-          archive={point => { void run(() => saveKnowledgePoint({ id: point.id, archived: !point.archived }), point.archived ? '已恢复知识点' : '知识点已归档，原记录保留'); }} />}
+          archive={point => { void run(() => point.archived ? restoreKnowledgeOption(point) : deleteKnowledgeOption(point), point.archived ? '已恢复知识点选项' : '知识点已从选项中删除，已有记录保留'); }} />}
         {view === 'reports' && <ReportsView data={data} add={newReport} open={report => open({ type: 'report-view', report })} />}
         </Suspense>
       </Content>
-      <Footer className="app-footer"><Text type="secondary">MathLearningWorkbench · 记录事实，明确下一步</Text></Footer>
+      <Footer className="app-footer"><Text type="secondary">{APP_NAME}</Text></Footer>
     </Layout>
     {modal && <Dialog key={modal.type} title={modalTitle} subtitle={modal.type === 'lesson' ? '先记下事实，再整理反馈。' : undefined}
       close={busy ? () => {} : close} busy={busy} wide={['lesson', 'report', 'report-view'].includes(modal.type)}>
@@ -170,9 +171,19 @@ export default function App() {
         void run(async () => { const saved = await saveStudent(value); setSelectedId(saved.id); setStudentCategory(saved.archived ? 'archived' : 'active'); setView('students'); }).then(ok => { if (ok) close(); });
       }} />}
       {modal.type === 'knowledge' && <KnowledgeForm point={modal.point} busy={busy} save={value => { void run(() => saveKnowledgePoint(value)).then(ok => { if (ok) close(); }); }} />}
-      {modal.type === 'mastery' && currentStudent && <MasteryForm student={currentStudent}
-        points={data.knowledgePoints.filter(point => modal.current ? point.id === modal.current.knowledge_point_id : !point.archived && !data.studentKnowledge.some(item => item.student_id === currentStudent.id && item.knowledge_point_id === point.id))}
-        current={modal.current} busy={busy} save={(id, status, note) => { const baseline = modal.current; void run(() => saveMastery(currentStudent.id, id, status, note, baseline)).then(ok => { if (ok) close(); }); }} />}
+      {modal.type === 'mastery' && masteryStudent && <MasteryForm student={masteryStudent}
+        points={data.knowledgePoints} assignments={data.studentKnowledge.filter(item => item.student_id === masteryStudent.id)}
+        createPoint={async title => {
+          let point: KnowledgePoint | null = null;
+          const ok = await run(async () => { point = await ensureKnowledgeOption(masteryStudent.grade, title); }, '知识点已保存并可选择');
+          return ok ? point : null;
+        }}
+        deletePoint={async point => {
+          let removed: KnowledgePoint | null = null;
+          const ok = await run(async () => { removed = await deleteKnowledgeOption(point); }, '知识点已从选项中删除');
+          return ok ? removed : null;
+        }}
+        current={modal.current} busy={busy || masteryStudent.archived} save={(id, status, note, baseline) => { void run(() => saveMastery(masteryStudent.id, id, status, note, baseline)).then(ok => { if (ok) close(); }); }} />}
       {modal.type === 'lesson' && <LessonForm data={data} studentId={currentStudent?.id} lesson={modal.lesson} busy={busy} save={(value, versions) => {
         void run(async () => { const saved = await saveLesson(value, versions); setSelectedId(saved.student_id); setView('lessons'); }).then(ok => { if (ok) close(); });
       }} />}
@@ -214,7 +225,7 @@ export default function App() {
 }
 
 function Brand({ onClick }: { onClick: () => void }) {
-  return <Button type="text" className="brand" onClick={onClick} icon={<CalculatorOutlined />}>MathLearningWorkbench</Button>;
+  return <Button type="text" className="brand" onClick={onClick} icon={<CalculatorOutlined />}><span className="brand-title">{APP_NAME}</span></Button>;
 }
 
 function ReportPreview({ report, busy, run }: { report: MonthlyReport; busy: boolean; run: Run }) {
@@ -257,7 +268,7 @@ function Login({ sessionExists, error, signOut }: { sessionExists: boolean; erro
   };
   return <Layout className="login-page">
     <div className="login-theme"><ThemeButton /></div>
-    <div className="login-brand"><CalculatorOutlined /><Text strong>MathLearningWorkbench</Text></div>
+    <div className="login-brand"><CalculatorOutlined /><Text strong>{APP_NAME}</Text></div>
     <Card className="login-card">
       <Space orientation="vertical" size={8} className="full-width login-heading">
         <Avatar size={52} icon={<LockOutlined />} className="accent-avatar" />

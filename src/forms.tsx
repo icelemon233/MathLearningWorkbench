@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, AutoComplete, Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Row, Segmented, Select, Typography } from 'antd';
 import type { AutoCompleteProps } from 'antd';
 import { SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
@@ -6,6 +6,8 @@ import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { monthPeriod, today, validatePeriod } from './lib';
 import { STATUS_OPTIONS } from './types';
+import { KnowledgePicker } from './knowledge-picker';
+import type { KnowledgeOptionActions } from './knowledge-picker';
 import type { AppData, KnowledgePoint, KnowledgeUpdate, Lesson, MasteryStatus, ReportContent, Student, StudentKnowledge } from './types';
 
 const DATE_FORMAT = 'YYYY-MM-DD';
@@ -59,14 +61,29 @@ export function KnowledgeForm({ point, busy, save }: { point?: KnowledgePoint; b
 }
 
 type MasteryValues = { point: string; status: MasteryStatus; note?: string };
-export function MasteryForm({ student, points, current, busy, save }: { student: Student; points: KnowledgePoint[]; current?: StudentKnowledge; busy: boolean; save: (id: string, status: MasteryStatus, note: string) => void }) {
+export function MasteryForm({ student, points, assignments, current, busy, save, createPoint, deletePoint }: KnowledgeOptionActions & {
+  student: Student; points: KnowledgePoint[]; assignments: StudentKnowledge[]; current?: StudentKnowledge; busy: boolean;
+  save: (id: string, status: MasteryStatus, note: string, previous?: StudentKnowledge) => void;
+}) {
+  const [form] = Form.useForm<MasteryValues>();
+  const [baseline, setBaseline] = useState(current);
+  const previousSelection = useRef(current?.knowledge_point_id);
   const onFinish = (values: MasteryValues) => {
     if (busy) return;
-    save(trim(current?.knowledge_point_id ?? values.point), values.status, trim(values.note));
+    save(trim(values.point), values.status, trim(values.note), baseline);
   };
-  return <Form<MasteryValues> name="mastery" layout="vertical" disabled={busy} onFinish={onFinish} scrollToFirstError initialValues={{ point: current?.knowledge_point_id, status: current?.status ?? 'pending', note: current?.note ?? '' }}>
+  return <Form<MasteryValues> form={form} name="mastery" layout="vertical" disabled={busy} onFinish={onFinish} scrollToFirstError
+    onValuesChange={changed => {
+      if (!Object.hasOwn(changed, 'point')) return;
+      const existing = assignments.find(item => item.knowledge_point_id === changed.point);
+      setBaseline(existing ? { ...existing } : undefined);
+      if (existing || previousSelection.current) form.setFieldsValue({ status: existing?.status ?? 'pending', note: existing?.note ?? '' });
+      previousSelection.current = changed.point;
+    }}
+    initialValues={{ point: current?.knowledge_point_id, status: current?.status ?? 'pending', note: current?.note ?? '' }}>
+    {student.archived && <Alert type="warning" showIcon title="这位学生已归档，请恢复档案后再保存。" style={{ marginBottom: 16 }} />}
     <Row gutter={[20, 0]}>
-      <Col span={24}><Form.Item name="point" label="知识点" rules={requiredChoice('知识点')}><Select showSearch optionFilterProp="label" disabled={busy || !!current} placeholder="选择知识点" options={points.map(point => ({ value: point.id, label: `${point.grade} · ${point.chapter} · ${point.title}` }))} /></Form.Item></Col>
+      <Col span={24}><Form.Item name="point" label="知识点" rules={requiredChoice('知识点')}><KnowledgePicker points={points} grade={student.grade} disabled={busy || !!current} createPoint={createPoint} deletePoint={deletePoint} /></Form.Item></Col>
       <Col xs={24} sm={12}><Form.Item name="status" label="掌握情况" rules={requiredChoice('掌握情况')}><Select options={statusOptions} /></Form.Item></Col>
       <Col span={24}><Form.Item name="note" label="判断依据 / 备注"><Input.TextArea maxLength={2000} rows={3} placeholder="记录练习表现、常见错误或后续巩固重点" /></Form.Item></Col>
     </Row>

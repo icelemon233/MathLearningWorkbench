@@ -52,3 +52,11 @@ describe('lesson deletion errors', () => {
     expect(errorMessage({ message: 'lesson_delete_network' })).toBe('删除结果暂时无法确认，请检查网络并刷新列表，核对记录是否仍然存在。');
   });
 });
+
+describe('Chinese interface errors', () => {
+  it('localizes unknown server errors and knowledge option conflicts', () => {
+    expect(errorMessage(new Error('Unexpected server failure'))).toBe('操作失败，请稍后重试。未保存的内容仍在当前页面。');
+    expect(errorMessage(new Error('knowledge_option_conflict'))).toBe('这个知识点已在其他设备更新，请刷新后重试。');
+    expect(errorMessage(new Error('knowledge_option_missing'))).toBe('这个知识点已从选项中删除，请重新选择或输入名称恢复。');
+  });
+});
