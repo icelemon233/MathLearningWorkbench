@@ -101,11 +101,11 @@ export function LessonForm({ data, studentId, lesson, busy, save }: { data: AppD
     <Row gutter={[20, 0]}>
       <Col xs={24} sm={12}><Form.Item name="student" label="学生" rules={requiredChoice('学生')}><Select showSearch optionFilterProp="label" disabled={busy || !!lessonBaseline} placeholder="选择学生" onChange={changeStudent} options={data.students.filter(item => !item.archived || item.id === selected).map(item => ({ value: item.id, label: `${item.name} · ${item.grade || '年级未填写'}` }))} /></Form.Item></Col>
       <Col xs={24} sm={12}><Form.Item name="lesson_date" label="上课日期" rules={requiredChoice('上课日期')}><DatePicker format={DATE_FORMAT} style={{ width: '100%' }} /></Form.Item></Col>
-      <Col span={24}><Form.Item name="content" label="本节课内容" rules={requiredText('本节课内容')}><Input.TextArea rows={3} maxLength={4000} placeholder="今天完成了什么，讲解或练习了哪些内容" /></Form.Item></Col>
+      <Col span={24}><Form.Item name="content" label="本节课内容" rules={requiredText('本节课内容')} extra="可直接写关键词、口语或零散笔记，保存后用 AI 整理为课后反馈。"><Input.TextArea rows={3} maxLength={4000} placeholder="今天讲了什么、复习或练习了哪些知识点，不必提前整理格式" /></Form.Item></Col>
       <Col xs={24} sm={12}><Form.Item name="performance" label="课堂表现"><Input.TextArea rows={2} maxLength={2000} placeholder="状态、专注、互动与做得好的地方" /></Form.Item></Col>
       <Col xs={24} sm={12}><Form.Item name="problems" label="暴露问题"><Input.TextArea rows={2} maxLength={2000} placeholder="卡在哪里，出现了什么错误" /></Form.Item></Col>
       <Col xs={24} sm={12}><Form.Item name="homework_completion" label="上次作业完成情况"><Select options={['', '已完成', '部分完成', '未完成', '本次无作业'].map(value => ({ value, label: value || '未记录' }))} /></Form.Item></Col>
-      <Col xs={24} sm={12}><Form.Item name="homework" label="本次课后作业"><Input.TextArea rows={2} maxLength={2000} placeholder="具体任务（选填）" /></Form.Item></Col>
+      <Col xs={24} sm={12}><Form.Item name="homework" label="本次课后作业"><Input.TextArea rows={2} maxLength={2000} placeholder="任务、数量，以及来不及完成时的替代安排（选填）" /></Form.Item></Col>
       <Col span={24}><Form.Item name="next_plan" label="下节课计划"><Input.TextArea rows={2} maxLength={2000} placeholder="下一步讲解、复习或练习重点" /></Form.Item></Col>
     </Row>
     <section className="form-section">

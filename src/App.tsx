@@ -4,11 +4,11 @@ import {
   Form, Grid, Input, Layout, Menu, Skeleton, Space, Spin, Tag, Tooltip, Typography,
 } from 'antd';
 import {
-  ApartmentOutlined, BulbOutlined, CalculatorOutlined, CalendarOutlined, CopyOutlined, DashboardOutlined,
+  ApartmentOutlined, BulbOutlined, CalculatorOutlined, CalendarOutlined, DashboardOutlined,
   DeleteOutlined, DownloadOutlined, FileTextOutlined, LockOutlined, LoginOutlined, LogoutOutlined, MenuOutlined,
   PrinterOutlined, ReadOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined, UserOutlined,
 } from '@ant-design/icons';
-import { assignPoints, db, deleteLesson, invokeAI, saveFeedback, saveKnowledgePoint, saveLesson, saveMastery, saveMonthlyReport, saveStudent } from './api';
+import { assignPoints, db, deleteLesson, invokeAI, saveKnowledgePoint, saveLesson, saveMastery, saveMonthlyReport, saveStudent } from './api';
 import { Dialog } from './components';
 import { displayDate, errorMessage, today } from './lib';
 import { exportReportDocx, printReport } from './export-report';
@@ -28,6 +28,7 @@ const LessonForm = lazy(() => import('./forms').then(module => ({ default: modul
 const MasteryForm = lazy(() => import('./forms').then(module => ({ default: module.MasteryForm })));
 const ReportForm = lazy(() => import('./forms').then(module => ({ default: module.ReportForm })));
 const StudentForm = lazy(() => import('./forms').then(module => ({ default: module.StudentForm })));
+const FeedbackEditor = lazy(() => import('./feedback').then(module => ({ default: module.FeedbackEditor })));
 type View = 'dashboard' | 'students' | 'lessons' | 'knowledge' | 'reports';
 type Modal = { type: 'student'; student?: Student } | { type: 'knowledge'; point?: KnowledgePoint }
   | { type: 'lesson'; lesson?: Lesson } | { type: 'lesson-delete'; lesson: Lesson } | { type: 'mastery'; current?: StudentKnowledge }
@@ -214,39 +215,6 @@ export default function App() {
 
 function Brand({ onClick }: { onClick: () => void }) {
   return <Button type="text" className="brand" onClick={onClick} icon={<CalculatorOutlined />}>MathLearningWorkbench</Button>;
-}
-
-function FeedbackEditor({ lesson, studentName, busy, run }: { lesson: Lesson; studentName: string; busy: boolean; run: Run }) {
-  const [feedback, setFeedback] = useState(lesson.feedback);
-  const [baseline, setBaseline] = useState(lesson);
-  return <div className="page-stack">
-    <Card size="small" className="feedback-summary">
-      <Descriptions size="small" column={2} items={[
-        { key: 'student', label: '学生', children: studentName },
-        { key: 'date', label: '日期', children: displayDate(lesson.lesson_date) },
-        { key: 'content', label: '本节课内容', span: 2, children: <span className="prewrap">{lesson.content}</span> },
-        ...(lesson.problems ? [{ key: 'problems', label: '暴露问题', span: 2, children: <span className="prewrap">{lesson.problems}</span> }] : []),
-      ]} />
-    </Card>
-    <div className="feedback-toolbar">
-      <Text type="secondary">润色草稿，或根据课堂记录整理，核对后再保存或复制</Text>
-      <Button icon={<BulbOutlined />} loading={busy} onClick={() => { void run(async () => {
-        const result = await invokeAI({ action: 'lesson_feedback', lesson_id: lesson.id, draft: feedback.trim() });
-        if (!result.feedback) throw new Error('没有收到反馈内容');
-        setFeedback(result.feedback); setBaseline(lesson);
-      }, '反馈已润色，请核对后保存', false); }}>AI 润色</Button>
-    </div>
-    <Form layout="vertical"><Form.Item label="课后反馈" style={{ marginBottom: 0 }}>
-      <Input.TextArea aria-label="课后反馈" value={feedback} onChange={event => setFeedback(event.target.value)}
-        rows={14} maxLength={12000} disabled={busy} placeholder="直接写反馈后点击 AI 润色；留空时，AI 会根据课堂记录整理。" />
-    </Form.Item></Form>
-    <div className="form-footer">
-      <Button icon={<CopyOutlined />} disabled={!feedback.trim() || busy} onClick={() => { void run(() => navigator.clipboard.writeText(feedback), '反馈已复制', false); }}>复制文字</Button>
-      <Button type="primary" loading={busy} disabled={!feedback.trim()} onClick={() => { void run(async () => {
-        const saved = await saveFeedback(baseline, feedback.trim()); setBaseline(saved);
-      }, '课后反馈已保存'); }}>保存反馈</Button>
-    </div>
-  </div>;
 }
 
 function ReportPreview({ report, busy, run }: { report: MonthlyReport; busy: boolean; run: Run }) {

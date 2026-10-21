@@ -65,7 +65,7 @@ test('prompts use factual records and omit transport metadata or previous genera
   const lesson = { lesson_date: '2026-10-01', content: '一次函数', performance: '', problems: '', homework_completion: '', homework: '', next_plan: '', knowledge_updates: [], feedback: 'OLD_AI_OUTPUT', owner_id: 'private-owner' };
   const messages = messagesFor({ action: 'lesson_feedback', lesson_id: id }, { student, lesson });
   assert.equal(messages.length, 2);
-  assert.ok(messages[1].content.includes('示例学生'));
+  assert.ok(!messages[1].content.includes('示例学生'));
   assert.ok(messages[1].content.includes('一次函数'));
   assert.ok(!messages[1].content.includes('OLD_AI_OUTPUT'));
   assert.ok(!messages[1].content.includes('PRIVATE_NOTE'));

@@ -6,7 +6,7 @@ import {
   type Action,
 } from './logic.ts';
 
-// A 12,000-character Chinese feedback draft requires up to 36 KB before JSON.
+// Keep requests bounded, including older tabs that still send a legacy draft.
 const MAX_BODY_BYTES = 65536;
 const MODEL_TIMEOUT_MS = 55000;
 

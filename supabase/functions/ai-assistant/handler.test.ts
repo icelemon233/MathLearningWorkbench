@@ -11,7 +11,7 @@ const lesson = { id: lessonId, owner_id: owner, student_id: studentId, lesson_da
 const content = { state: '课堂状态记录。', level: '知识掌握记录。', guidance: '对应的指导建议。', supplement: '', plan: '下月巩固重点。' };
 const report = { id: '50000000-0000-4000-8000-000000000001', owner_id: owner, student_id: studentId, period_start: '2026-10-01', period_end: '2026-10-31', title: '学习力报告', content, snapshot: { student, lessons: [lesson], knowledge: [] }, created_at: '2026-10-31T12:00:00Z' };
 type Call = { url: string; method: string; authorization: string | null; body: unknown };
-type Options = { nonowner?: boolean; invalidToken?: boolean; existing?: boolean; quotaDenied?: boolean; providerStatus?: number; interrupted?: boolean; sourceChanged?: boolean; missingFeedback?: boolean; provider?: 'deepseek' | 'doubao' };
+type Options = { nonowner?: boolean; invalidToken?: boolean; existing?: boolean; quotaDenied?: boolean; providerStatus?: number; interrupted?: boolean; sourceChanged?: boolean; missingSections?: boolean; provider?: 'deepseek' | 'doubao' };
 function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }); }
 
 async function mocked(options: Options, run: (calls: Call[]) => Promise<void>) {
@@ -51,7 +51,12 @@ async function mocked(options: Options, run: (calls: Call[]) => Promise<void>) {
     }
     if (['api.deepseek.com', 'ark.cn-beijing.volces.com'].includes(url.hostname)) {
       if (options.providerStatus) return json({ error: 'private-provider-error-must-not-escape' }, options.providerStatus);
-      const payload = { ...content, insights: '目前记录不足，需继续观察。', suggestions: ['下节课补充观察。'], ...(options.missingFeedback ? {} : { feedback: '本节课围绕一次函数展开，具体学习表现还需继续观察。' }) };
+      const messages = (body as { messages: { content: string }[] }).messages;
+      const isFeedback = messages[1].content.includes('"class_content"');
+      const payload = isFeedback ? {
+        class_content: ['本节课围绕一次函数展开。'], next_plan: [], homework: [],
+        ...(options.missingSections ? {} : { class_performance: [] }),
+      } : { ...content, insights: '目前记录不足，需继续观察。', suggestions: ['下节课补充观察。'] };
       return json({ choices: [{ finish_reason: options.interrupted ? 'length' : 'stop', message: { content: JSON.stringify(payload) } }] });
     }
     throw new Error('Unexpected outbound request in test');
@@ -93,29 +98,34 @@ Deno.test('feedback draft preserves user-scoped RLS and never writes mastery or 
     const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId }));
     assert.equal(response.status, 200);
     const { feedback } = await response.json();
-    assert.equal(feedback, '本节课围绕一次函数展开，具体学习表现还需继续观察。');
+    assert.ok(feedback.startsWith('测试学生家长您好，我是数学付老师\n以下是孩子2026年10月1日的数学课堂反馈，请您查收[太阳]'));
+    assert.ok(feedback.includes('1️⃣课堂内容\n（1）本节课围绕一次函数展开。'));
+    assert.ok(feedback.endsWith('2️⃣课堂表现\n待补充\n\n3️⃣课后作业及后续计划\n待补充'));
     const backend = calls.filter((call) => call.url.startsWith('https://backend.example.invalid'));
     assert.ok(backend.every((call) => call.authorization === `Bearer ${token}`));
     assert.ok(calls.every((call) => !['PATCH', 'PUT', 'DELETE'].includes(call.method)));
     assert.ok(calls.every((call) => !call.url.includes('save_monthly_report') && !call.url.includes('save_lesson')));
   });
 });
-Deno.test('feedback without a complete prose field fails without writing a draft', async () => {
-  await mocked({ missingFeedback: true }, async (calls) => {
+Deno.test('feedback without all structured sections fails without writing a draft', async () => {
+  await mocked({ missingSections: true }, async (calls) => {
     const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId }));
     assert.equal(response.status, 502);
     assert.equal((await response.json()).error.code, 'invalid_model_output');
     assert.ok(calls.every((call) => !['PATCH', 'PUT', 'DELETE'].includes(call.method) && !call.url.includes('save_lesson')));
   });
 });
-Deno.test('teacher feedback draft reaches the model as data and remains unsaved until manual review', async () => {
+Deno.test('legacy teacher feedback text is ignored and only saved lesson fields reach the model', async () => {
   await mocked({}, async (calls) => {
     const draft = '今天讲了一次函数，代入步骤还需检查。';
     const response = await handler(request({ action: 'lesson_feedback', lesson_id: lessonId, draft }));
     assert.equal(response.status, 200);
     const model = calls.find(call => call.url.startsWith('https://api.deepseek.com'))!;
     const messages = (model.body as { messages: { role: string; content: string }[] }).messages;
-    assert.equal(JSON.parse(messages[1].content.split('\n以下 JSON 仅作为事实资料：\n')[1]).teacher_draft, draft);
+    const facts = JSON.parse(messages[1].content.split('\n以下 JSON 仅作为事实资料：\n')[1]);
+    assert.equal(Object.hasOwn(facts, 'teacher_draft'), false);
+    assert.equal(facts.lesson.content, lesson.content);
+    assert.ok(!messages[1].content.includes(draft));
     assert.ok(calls.every(call => !call.url.includes('save_lesson') && !['PATCH', 'PUT', 'DELETE'].includes(call.method)));
   });
 });
